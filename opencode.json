@@ -1,0 +1,13 @@
+{
+  "subagent_depth": 3,
+  "permission": {
+    "read": {
+      ".claude/**": "deny",
+      "**/CLAUDE.md": "deny"
+    },
+    "edit": {
+      ".claude/**": "deny",
+      "**/CLAUDE.md": "deny"
+    }
+  }
+}

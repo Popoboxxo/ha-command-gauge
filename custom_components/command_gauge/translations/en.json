@@ -1,0 +1,102 @@
+{
+  "title": "Command Gauge",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect CommandCode",
+        "description": "Enter your CommandCode account and API key. The key is stored only in this Home Assistant config entry.",
+        "data": {
+          "account_name": "Account name",
+          "api_key": "API key",
+          "base_url": "API base URL",
+          "skip_validation": "Save without validating"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate CommandCode",
+        "data": { "api_key": "API key" }
+      },
+      "reconfigure": {
+        "title": "Reconfigure CommandCode",
+        "data": {
+          "account_name": "Account name",
+          "api_key": "API key",
+          "base_url": "API base URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_token": "The API key was rejected by CommandCode.",
+      "cannot_connect": "Could not reach CommandCode.",
+      "forbidden": "CommandCode denied access for this API key.",
+      "invalid_base_url": "The API base URL is not allowed or malformed.",
+      "invalid_response": "CommandCode returned an unrecognized account response.",
+      "missing_fields": "Account name and API key are required."
+    },
+    "abort": {
+      "already_configured": "This CommandCode account is already configured.",
+      "wrong_account": "The API key belongs to a different CommandCode account.",
+      "reauth_failed": "The existing CommandCode entry could not be found.",
+      "reconfigure_failed": "The existing CommandCode entry could not be found.",
+      "reauth_successful": "CommandCode was re-authenticated successfully.",
+      "reconfigure_successful": "CommandCode was reconfigured successfully."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Command Gauge settings",
+        "data": {
+          "account_name": "Account name",
+          "warn_percent": "Usage warning threshold (%)",
+          "pace_red_percent": "Pace red threshold (%)",
+          "auto_update_usage": "Automatic usage updates",
+          "usage_refresh_minutes": "Usage refresh interval (minutes)",
+          "auto_update_models": "Automatic model updates",
+          "models_refresh_minutes": "Model refresh interval (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_thresholds": "The pace red threshold must not be below the usage warning threshold.",
+      "missing_fields": "Account name is required."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "monthly_credits": { "name": "Monthly credits" },
+      "purchased_credits": { "name": "Purchased credits" },
+      "free_credits": { "name": "Free credits" },
+      "remaining_credits": { "name": "Remaining credits" },
+      "window_usage": { "name": "Usage {window}" },
+      "window_reset": { "name": "Reset {window}" },
+      "window_forecast": { "name": "Forecast {window}" },
+      "window_pace": { "name": "Pace {window}" },
+      "window_remaining": { "name": "Remaining {window}" },
+      "window_time_to_reset": { "name": "Time to reset {window}" },
+      "window_burn_rate": { "name": "Burn rate {window}" },
+      "total_cost": { "name": "Total cost" },
+      "request_count": { "name": "Requests" },
+      "token_count": { "name": "Tokens" },
+      "plan": { "name": "Plan" },
+      "models": { "name": "Models" }
+    },
+    "binary_sensor": {
+      "account_reachable": { "name": "Account reachable" },
+      "subscription_active": { "name": "Subscription active" },
+      "credits_below_threshold": { "name": "Credits below threshold" },
+      "window_exceeded": { "name": "Usage limit exceeded {window}" }
+    },
+    "number": {
+      "usage_refresh_minutes": { "name": "Usage refresh interval" },
+      "models_refresh_minutes": { "name": "Model refresh interval" },
+      "warn_percent": { "name": "Usage warning threshold" },
+      "pace_red_percent": { "name": "Pace red threshold" }
+    },
+    "button": { "refresh": { "name": "Refresh" } },
+    "switch": {
+      "auto_usage": { "name": "Automatic usage updates" },
+      "auto_models": { "name": "Automatic model updates" }
+    }
+  }
+}
