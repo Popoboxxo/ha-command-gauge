@@ -1,7 +1,0 @@
-{
-  "isolation-deny": [
-    ".opencode/**",
-    "**/opencode.json",
-    "**/AGENTS.md"
-  ]
-}

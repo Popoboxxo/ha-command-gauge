@@ -1,6 +1,0 @@
-platform:
-  hacs:
-    integration_repo_url: "https://github.com/Popoboxxo/ha-command-gauge"
-    reference_repo_url: "https://github.com/Popoboxxo/ha-go-gauge"
-    project_skills: "hacs-integration-development,go-gauge-development"
-    dev_instance_url: "http://127.0.0.1:8123"
