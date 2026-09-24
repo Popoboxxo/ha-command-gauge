@@ -1,0 +1,8 @@
+dod-preset: standard
+conventions-preset: null
+variables:
+  PLATFORM: Home Assistant Custom Component
+  RUNTIME: Python 3.13 (HA Core)
+  PROJECT_LANGUAGES: Python
+  TEST_COMMANDS: pytest tests/ --cov
+  CODE_CONVENTIONS: Python, ruff, mypy --strict
