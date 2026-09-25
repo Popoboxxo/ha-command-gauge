@@ -134,10 +134,12 @@ async def test_successful_poll_is_unaffected() -> None:
     coord._client.fetch_models = AsyncMock(return_value=[])
     coord._client.fetch_summary = AsyncMock(return_value={})
 
-    with patch("custom_components.command_gauge.coordinator.parse_whoami") as whoami, \
-         patch("custom_components.command_gauge.coordinator.parse_credits") as credits, \
-         patch("custom_components.command_gauge.coordinator.parse_subscription") as sub, \
-         patch("custom_components.command_gauge.coordinator.parse_summary") as summary:
+    with (
+        patch("custom_components.command_gauge.coordinator.parse_whoami") as whoami,
+        patch("custom_components.command_gauge.coordinator.parse_credits") as credits,
+        patch("custom_components.command_gauge.coordinator.parse_subscription") as sub,
+        patch("custom_components.command_gauge.coordinator.parse_summary") as summary,
+    ):
         whoami.return_value = {"org_id": "org-1", "email": "e2e@example.invalid"}
         credits.return_value = {"windows": {}}
         sub.return_value = {"period_start": None}

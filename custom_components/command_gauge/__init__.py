@@ -73,9 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
             raise
         except Exception as err:
-            _LOGGER.error(
-                "Command Gauge initial refresh failed: %s", type(err).__name__
-            )
+            _LOGGER.error("Command Gauge initial refresh failed: %s", type(err).__name__)
             raise
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

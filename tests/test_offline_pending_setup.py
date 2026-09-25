@@ -59,14 +59,10 @@ async def test_offline_pending_skips_the_blocking_first_refresh() -> None:
     hass = _hass()
     entry = _entry(offline_pending=True)
 
-    with patch(
-        "custom_components.command_gauge.CommandGaugeCoordinator"
-    ) as coordinator_cls:
+    with patch("custom_components.command_gauge.CommandGaugeCoordinator") as coordinator_cls:
         coordinator = coordinator_cls.return_value
         coordinator.async_config_entry_first_refresh = AsyncMock(
-            side_effect=AssertionError(
-                "first refresh must not run for an offline-pending entry"
-            )
+            side_effect=AssertionError("first refresh must not run for an offline-pending entry")
         )
         assert await async_setup_entry(hass, entry) is True
         coordinator.async_config_entry_first_refresh.assert_not_awaited()
@@ -78,9 +74,7 @@ async def test_offline_pending_still_forwards_all_platforms() -> None:
     hass = _hass()
     entry = _entry(offline_pending=True)
 
-    with patch(
-        "custom_components.command_gauge.CommandGaugeCoordinator"
-    ) as coordinator_cls:
+    with patch("custom_components.command_gauge.CommandGaugeCoordinator") as coordinator_cls:
         coordinator_cls.return_value.async_config_entry_first_refresh = AsyncMock()
         assert await async_setup_entry(hass, entry) is True
         forwarded = hass.config_entries.async_forward_entry_setups.await_args
@@ -94,9 +88,7 @@ async def test_offline_pending_entry_is_registered_in_hass_data() -> None:
     hass = _hass()
     entry = _entry(offline_pending=True)
 
-    with patch(
-        "custom_components.command_gauge.CommandGaugeCoordinator"
-    ) as coordinator_cls:
+    with patch("custom_components.command_gauge.CommandGaugeCoordinator") as coordinator_cls:
         coordinator = coordinator_cls.return_value
         coordinator.async_config_entry_first_refresh = AsyncMock()
         assert await async_setup_entry(hass, entry) is True
@@ -111,13 +103,9 @@ async def test_validated_entry_still_fails_closed_on_auth_error() -> None:
     hass = _hass()
     entry = _entry(offline_pending=False)
 
-    with patch(
-        "custom_components.command_gauge.CommandGaugeCoordinator"
-    ) as coordinator_cls:
+    with patch("custom_components.command_gauge.CommandGaugeCoordinator") as coordinator_cls:
         coordinator = coordinator_cls.return_value
-        coordinator.async_config_entry_first_refresh = AsyncMock(
-            side_effect=ConfigEntryAuthFailed
-        )
+        coordinator.async_config_entry_first_refresh = AsyncMock(side_effect=ConfigEntryAuthFailed)
         with pytest.raises(ConfigEntryAuthFailed):
             await async_setup_entry(hass, entry)
         # A failed entry must not linger in hass.data.
@@ -136,13 +124,9 @@ async def test_entry_without_the_key_defaults_to_validating() -> None:
     hass = _hass()
     entry = _entry(offline_pending=None)
 
-    with patch(
-        "custom_components.command_gauge.CommandGaugeCoordinator"
-    ) as coordinator_cls:
+    with patch("custom_components.command_gauge.CommandGaugeCoordinator") as coordinator_cls:
         coordinator = coordinator_cls.return_value
-        coordinator.async_config_entry_first_refresh = AsyncMock(
-            side_effect=ConfigEntryAuthFailed
-        )
+        coordinator.async_config_entry_first_refresh = AsyncMock(side_effect=ConfigEntryAuthFailed)
         with pytest.raises(ConfigEntryAuthFailed):
             await async_setup_entry(hass, entry)
         coordinator.async_config_entry_first_refresh.assert_awaited()
@@ -157,9 +141,7 @@ async def test_invalid_base_url_still_blocks_even_when_offline_pending() -> None
     entry = _entry(offline_pending=True)
     entry.data[CONF_BASE_URL] = "ftp://not-allowed.example"
 
-    with patch(
-        "custom_components.command_gauge.CommandGaugeCoordinator"
-    ) as coordinator_cls:
+    with patch("custom_components.command_gauge.CommandGaugeCoordinator") as coordinator_cls:
         with pytest.raises(ConfigEntryNotReady):
             await async_setup_entry(hass, entry)
         coordinator_cls.assert_not_called()

@@ -34,10 +34,7 @@ def test_no_hardcoded_version_in_user_agent() -> None:
     interpolation.
     """
     source = (COMPONENT / "coordinator.py").read_text()
-    literals = [
-        m for m in re.findall(r'"ha-command-gauge/([^"{]*)"', source)
-        if m.strip()
-    ]
+    literals = [m for m in re.findall(r'"ha-command-gauge/([^"{]*)"', source) if m.strip()]
     assert not literals, (
         f"hardcoded version(s) found in coordinator.py: {literals} - "
         f"use INTEGRATION_VERSION (currently {VERSION})"
