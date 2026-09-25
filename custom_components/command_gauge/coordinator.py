@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import math
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -37,6 +39,13 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 MODELS_URL = "/provider/v1/models"
+# Read the version from the manifest - the same file Home Assistant reports in
+# the integration page - instead of hardcoding it. A literal here silently went
+# stale at 0.1.0 while the manifest already said 0.1.1, so the API was being
+# told the wrong version in the User-Agent.
+INTEGRATION_VERSION: str = json.loads(
+    (Path(__file__).parent / "manifest.json").read_text(encoding="utf-8")
+).get("version", "0.0.0")
 BURN_RATE_LOOKBACK_SECONDS = 2 * 3600
 BURN_RATE_MIN_SPAN_SECONDS = 300
 AUTH_STATUSES = frozenset({401})
@@ -350,11 +359,11 @@ class CommandCodeApiClient:
         self._headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {api_key}",
-            "User-Agent": "ha-command-gauge/0.1.0",
+            "User-Agent": f"ha-command-gauge/{INTEGRATION_VERSION}",
         }
         self._model_headers = {
             "Accept": "application/json",
-            "User-Agent": "ha-command-gauge/0.1.0",
+            "User-Agent": f"ha-command-gauge/{INTEGRATION_VERSION}",
         }
         self._request_timeout = aiohttp.ClientTimeout(total=15)
 
