@@ -507,6 +507,34 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return "schema_unrecognized"
         return "unexpected"
 
+    async def _async_update_data(self) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        previous = self.data or self.empty_data(
+            self.auto_usage,
+            self.usage_minutes,
+            self.auto_models,
+            self.models_minutes,
+        )
+        data = dict(previous)
+        statuses = dict(previous.get("section_status") or {})
+        force = self._force_refresh
+        self._force_refresh = False
+
+        # The failure record must reach the entities even when the whole
+        # update aborts. Home Assistant assigns
+        # `self.data = await self._async_update_data()` - so an exception
+        # means the coordinator keeps its previous (possibly empty) snapshot
+        # and every sensor silently reports "unknown" while the log shows a
+        # perfectly clear "CommandCode rejected the API key". Publishing the
+        # collected statuses before re-raising is what makes the UI explain
+        # the outage instead of going quiet. Verified on HA 2026.9.1.
+        try:
+            return await self._async_fetch_all(data, statuses, now, force)
+        except (ConfigEntryAuthFailed, UpdateFailed):
+            self.data = {**data, "section_status": statuses}
+            self.last_update_success = False
+            raise
+
     @staticmethod
     def _section_status(
         available: bool,
@@ -555,19 +583,20 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if isinstance(error, CommandCodeApiError) and error.status in AUTH_STATUSES:
             raise ConfigEntryAuthFailed("CommandCode rejected the API key") from error
 
-    async def _async_update_data(self) -> dict[str, Any]:
-        now = datetime.now(UTC)
-        previous = self.data or self.empty_data(
-            self.auto_usage,
-            self.usage_minutes,
-            self.auto_models,
-            self.models_minutes,
-        )
-        data = dict(previous)
-        statuses = dict(previous.get("section_status") or {})
+    async def _async_fetch_all(
+        self,
+        data: dict[str, Any],
+        statuses: dict[str, Any],
+        now: datetime,
+        force: bool,
+    ) -> dict[str, Any]:
+        """Fetch every section, recording a per-section status as it goes.
+
+        Raises ConfigEntryAuthFailed / UpdateFailed so the caller's
+        fail-closed behaviour is unchanged; the collected statuses are
+        published by _async_update_data before the exception continues.
+        """
         identity: dict[str, Any] | None = None
-        force = self._force_refresh
-        self._force_refresh = False
 
         models_due = (
             force
@@ -591,13 +620,21 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.last_models_fetch = now
                 statuses["models"] = self._section_status(True, now, success=True)
             except Exception as err:  # noqa: BLE001
-                self._raise_auth(err)
+                # Record the failure in section_status BEFORE raising the auth
+                # error. _raise_auth() throws ConfigEntryAuthFailed, which
+                # propagates out of _async_update_data without self.data ever
+                # being assigned - the entity then kept reading the empty
+                # snapshot (section_status={}) and reported "unknown" forever,
+                # hiding the very error that had just been logged. Setting the
+                # status first makes the sensor report the real cause even
+                # while the entry is failing.
                 statuses["models"] = self._section_status(
                     data.get("models") is not None,
                     now,
                     statuses.get("models"),
                     err,
                 )
+                self._raise_auth(err)
 
         usage_due = (
             force
@@ -616,13 +653,14 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 data["account"] = identity
                 statuses["account"] = self._section_status(True, now, success=True)
             except Exception as err:  # noqa: BLE001
-                self._raise_auth(err)
+                # Status first, then raise - see the models block above.
                 statuses["account"] = self._section_status(
                     data.get("account") is not None,
                     now,
                     statuses.get("account"),
                     err,
                 )
+                self._raise_auth(err)
 
             if identity is not None:
                 org_id = identity.get("org_id")
@@ -636,6 +674,15 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     (subscription_raw, "subscription", parse_subscription),
                 ):
                     if isinstance(result, Exception):
+                        # Same reason as above: record first, raise after, so a
+                        # failing auth attempt is visible in the UI instead of
+                        # leaving the section silently unknown.
+                        statuses[section] = self._section_status(
+                            data.get(section) is not None,
+                            now,
+                            statuses.get(section),
+                            result,
+                        )
                         self._raise_auth(result)
                     try:
                         parsed = None if isinstance(result, Exception) else parser(result)
@@ -644,16 +691,16 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         data[section] = parsed
                         statuses[section] = self._section_status(True, now, success=True)
                     except Exception as err:  # noqa: BLE001
-                        self._raise_auth(err)
                         statuses[section] = self._section_status(
                             data.get(section) is not None,
                             now,
                             statuses.get(section),
                             err,
                         )
+                        self._raise_auth(err)
 
                 subscription = data.get("subscription") or {}
-                old_period = (previous.get("subscription") or {}).get("period_start")
+                old_period = (self.data or {}).get("subscription", {}).get("period_start")
                 new_period = subscription.get("period_start")
                 if new_period and old_period and new_period != old_period:
                     self._usage_samples.clear()
@@ -666,13 +713,14 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     data["summary"] = summary
                     statuses["usage"] = self._section_status(True, now, success=True)
                 except Exception as err:  # noqa: BLE001
-                    self._raise_auth(err)
+                    # Status first, then raise - see the models block above.
                     statuses["usage"] = self._section_status(
                         data.get("summary") is not None,
                         now,
                         statuses.get("usage"),
                         err,
                     )
+                    self._raise_auth(err)
 
                 if data.get("credits") and statuses.get("credits", {}).get("error_code") is None:
                     self._record_window_samples(data["credits"], now)

@@ -168,6 +168,7 @@ def install_ha_stubs() -> None:
 
     exceptions = sys.modules["homeassistant.exceptions"]
     exceptions.ConfigEntryAuthFailed = type("ConfigEntryAuthFailed", (Exception,), {})
+    exceptions.ConfigEntryNotReady = type("ConfigEntryNotReady", (Exception,), {})
 
     update_coordinator = sys.modules["homeassistant.helpers.update_coordinator"]
     update_coordinator.DataUpdateCoordinator = CoordinatorStub
