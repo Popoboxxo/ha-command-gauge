@@ -1,0 +1,102 @@
+{
+  "title": "Command Gauge",
+  "config": {
+    "step": {
+      "user": {
+        "title": "CommandCode verbinden",
+        "description": "Gib deinen CommandCode-Account und API-Key ein. Der Key wird ausschließlich in diesem Home-Assistant-Config-Entry gespeichert.",
+        "data": {
+          "account_name": "Account-Name",
+          "api_key": "API-Key",
+          "base_url": "API-Basis-URL",
+          "skip_validation": "Ohne Validierung speichern"
+        }
+      },
+      "reauth_confirm": {
+        "title": "CommandCode erneut authentifizieren",
+        "data": { "api_key": "API-Key" }
+      },
+      "reconfigure": {
+        "title": "CommandCode neu konfigurieren",
+        "data": {
+          "account_name": "Account-Name",
+          "api_key": "API-Key",
+          "base_url": "API-Basis-URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_token": "Der API-Key wurde von CommandCode abgelehnt.",
+      "cannot_connect": "CommandCode ist nicht erreichbar.",
+      "forbidden": "CommandCode hat den Zugriff für diesen API-Key verweigert.",
+      "invalid_base_url": "Die API-Basis-URL ist nicht erlaubt oder fehlerhaft.",
+      "invalid_response": "CommandCode lieferte eine unbekannte Account-Antwort.",
+      "missing_fields": "Account-Name und API-Key sind erforderlich."
+    },
+    "abort": {
+      "already_configured": "Dieser CommandCode-Account ist bereits eingerichtet.",
+      "wrong_account": "Der API-Key gehört zu einem anderen CommandCode-Account.",
+      "reauth_failed": "Der bestehende CommandCode-Eintrag wurde nicht gefunden.",
+      "reconfigure_failed": "Der bestehende CommandCode-Eintrag wurde nicht gefunden.",
+      "reauth_successful": "CommandCode wurde erfolgreich erneut authentifiziert.",
+      "reconfigure_successful": "CommandCode wurde erfolgreich neu konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Command-Gauge-Einstellungen",
+        "data": {
+          "account_name": "Account-Name",
+          "warn_percent": "Nutzungs-Warnschwelle (%)",
+          "pace_red_percent": "Rote Pace-Schwelle (%)",
+          "auto_update_usage": "Automatische Nutzungsabfrage",
+          "usage_refresh_minutes": "Nutzungsintervall (Minuten)",
+          "auto_update_models": "Automatische Modellabfrage",
+          "models_refresh_minutes": "Modellintervall (Minuten)"
+        }
+      }
+    },
+    "error": {
+      "invalid_thresholds": "Die rote Pace-Schwelle darf nicht unter der Warnschwelle liegen.",
+      "missing_fields": "Account-Name ist erforderlich."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "monthly_credits": { "name": "Monatliches Guthaben" },
+      "purchased_credits": { "name": "Gekauftes Guthaben" },
+      "free_credits": { "name": "Gratisguthaben" },
+      "remaining_credits": { "name": "Verbleibendes Guthaben" },
+      "window_usage": { "name": "Nutzung {window}" },
+      "window_reset": { "name": "Zurücksetzen {window}" },
+      "window_forecast": { "name": "Prognose {window}" },
+      "window_pace": { "name": "Pace {window}" },
+      "window_remaining": { "name": "Verbleibend {window}" },
+      "window_time_to_reset": { "name": "Zeit bis Reset {window}" },
+      "window_burn_rate": { "name": "Verbrauchsrate {window}" },
+      "total_cost": { "name": "Gesamtkosten" },
+      "request_count": { "name": "Anfragen" },
+      "token_count": { "name": "Tokens" },
+      "plan": { "name": "Tarif" },
+      "models": { "name": "Modelle" }
+    },
+    "binary_sensor": {
+      "account_reachable": { "name": "Account erreichbar" },
+      "subscription_active": { "name": "Abo aktiv" },
+      "credits_below_threshold": { "name": "Guthaben unter Schwelle" },
+      "window_exceeded": { "name": "Nutzungslimit überschritten {window}" }
+    },
+    "number": {
+      "usage_refresh_minutes": { "name": "Nutzungsintervall" },
+      "models_refresh_minutes": { "name": "Modellintervall" },
+      "warn_percent": { "name": "Nutzungs-Warnschwelle" },
+      "pace_red_percent": { "name": "Rote Pace-Schwelle" }
+    },
+    "button": { "refresh": { "name": "Aktualisieren" } },
+    "switch": {
+      "auto_usage": { "name": "Automatische Nutzungsabfrage" },
+      "auto_models": { "name": "Automatische Modellabfrage" }
+    }
+  }
+}

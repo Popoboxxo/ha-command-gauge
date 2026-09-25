@@ -1,0 +1,6 @@
+{
+  "isolation-deny": [
+    ".claude/**",
+    "**/CLAUDE.md"
+  ]
+}
