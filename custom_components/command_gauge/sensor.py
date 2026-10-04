@@ -157,7 +157,6 @@ class WindowForecastSensor(_WindowSensor):
 
 class WindowPaceSensor(_WindowSensor):
     _attr_translation_key = "window_pace"
-    _attr_icon = "mdi:speedometer-medium"
 
     def __init__(self, coordinator, entry, key):
         super().__init__(coordinator, entry, key)
@@ -170,6 +169,24 @@ class WindowPaceSensor(_WindowSensor):
             self.coordinator.warn_percent,
             self.coordinator.pace_red_percent,
         )
+
+    @property
+    def icon(self) -> str:
+        """Traffic-light icon matching the current pace status."""
+        return {
+            "green": "mdi:check-circle-outline",
+            "yellow": "mdi:alert-circle-outline",
+            "red": "mdi:close-circle-outline",
+        }.get(self.native_value or "", "mdi:speedometer-medium")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the forecast and the thresholds behind the status."""
+        return {
+            "forecast_percent": forecast_percent(self._window(self._key)),
+            "green_below": self.coordinator.warn_percent,
+            "red_above": self.coordinator.pace_red_percent,
+        }
 
 
 class WindowRemainingSensor(_WindowSensor):

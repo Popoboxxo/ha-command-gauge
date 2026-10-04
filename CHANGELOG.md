@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.2.0] - 2026-10-04
+
+Release-readiness and parity release. No breaking changes: no `unique_id`
+changed, no ConfigEntry `VERSION` bump, no `async_migrate_entry` needed.
+
+### Added
+
+- **Pace sensor traffic-light icon and threshold attributes** (parity with
+  go_gauge): the per-window pace sensor now renders a status-matching icon
+  (green `mdi:check-circle-outline`, yellow `mdi:alert-circle-outline`, red
+  `mdi:close-circle-outline`, fallback `mdi:speedometer-medium`) and exposes
+  `forecast_percent`, `green_below`, and `red_above` as state attributes, so
+  dashboards and automations can react to the raw forecast without parsing
+  the green/yellow/red string.
+- `scripts/check_json_consistency.py` — validates that `manifest.json`,
+  `hacs.json`, `strings.json`, and every `translations/*.json` parse and
+  that all translations carry exactly the key paths of the English master.
+  Runs as a CI step in `validate.yml`.
+- `scripts/check_version_sync.py` — enforces the HACS release rule that the
+  GitHub release tag and `manifest.json:version` are identical apart from
+  the tag's leading `v`. Runs on every published release (CI job
+  `release-version-sync`).
+- `tests/test_ci_scripts.py` — covers both scripts, including the
+  missing/extra translation key and tag mismatch failure paths.
+
+### Fixed
+
+- `pytest` crashed before collecting any test on machines with the globally
+  installed `pytest-homeassistant-custom-component` plugin (it imports
+  `fcntl`, which does not exist on Windows). The suite installs its own HA
+  stubs in `tests/conftest.py` and does not use that plugin, so
+  `pyproject.toml` now disables its auto-loading (`-p no:homeassistant`;
+  a no-op in CI where the plugin is not installed).
+
+### Verification
+
+53 tests passed, `scripts/check_json_consistency.py` OK,
+`scripts/check_version_sync.py` skip-without-tag OK.
+
 ## [0.1.1] - 2026-09-26
 
 First bugfix release. Both issues below were found by deploying this
