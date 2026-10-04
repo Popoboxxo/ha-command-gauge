@@ -54,3 +54,48 @@ def test_sensor_platform_creates_windows_and_credits():
         "week": 40.0,
     }
     assert all(entity._attr_unique_id.startswith("e1_") for entity in added)
+
+
+def test_pace_sensor_icon_and_attributes_follow_status():
+    """Parity with go_gauge: traffic-light icon + threshold attributes."""
+    from datetime import UTC, datetime, timedelta
+
+    coordinator = MagicMock()
+    coordinator.warn_percent = 80
+    coordinator.pace_red_percent = 100
+    coordinator.data = {
+        "credits": {
+            "windows": {
+                "5h": {
+                    "key": "5h",
+                    "percent": 10,
+                    "resets_at": datetime.now(UTC) + timedelta(hours=1),
+                },
+            },
+        },
+    }
+    entry = MagicMock(entry_id="e1", data={"account_name": "Test"}, options={})
+    pace = sensor.WindowPaceSensor(coordinator, entry, "5h")
+
+    assert pace.native_value == "green"
+    assert pace.icon == "mdi:check-circle-outline"
+
+    attrs = pace.extra_state_attributes
+    assert attrs["green_below"] == 80
+    assert attrs["red_above"] == 100
+    # 10% used with 4 of 5 hours elapsed extrapolates to ~12.5% - safely green.
+    assert attrs["forecast_percent"] is not None
+    assert abs(attrs["forecast_percent"] - 12.5) < 0.2
+
+
+def test_pace_sensor_icon_defaults_when_status_unknown():
+    coordinator = MagicMock()
+    coordinator.warn_percent = 80
+    coordinator.pace_red_percent = 100
+    coordinator.data = {"credits": {"windows": {}}}
+    entry = MagicMock(entry_id="e1", data={"account_name": "Test"}, options={})
+    pace = sensor.WindowPaceSensor(coordinator, entry, "5h")
+
+    assert pace.native_value is None
+    assert pace.icon == "mdi:speedometer-medium"
+    assert pace.extra_state_attributes["forecast_percent"] is None
