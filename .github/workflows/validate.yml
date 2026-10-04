@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -27,9 +29,26 @@ jobs:
         run: |
           ruff check .
           ruff format --check custom_components tests
+      - name: JSON meta-file and translation parity
+        run: python scripts/check_json_consistency.py
       - name: HACS validation
         uses: hacs/action@main
         with:
           category: integration
       - name: Home Assistant manifest validation
         uses: home-assistant/actions/hassfest@master
+
+  release-version-sync:
+    # The Release-Dreiklang rule: HACS takes the version from the release tag,
+    # Home Assistant from manifest.json - they must match (v-prefix only in
+    # the tag). Enforced on every published release; a manual dispatch against
+    # a branch is skipped unless the ref looks like a version tag.
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify release tag matches manifest version
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name || github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: python scripts/check_version_sync.py
