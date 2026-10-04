@@ -161,3 +161,9 @@ vorhersehbar auf der anderen nachgezogen werden können.
 6. **Werkzeuge synchron halten:** `scripts/check_json_consistency.py` und
    `scripts/check_version_sync.py` sind ports-identisch; Änderungen daran
    immer in beiden Repos gleichzeitig vornehmen.
+
+## Verwandte Dokumente
+
+- `docs/cross-repo-sync.md` — der operative Teil: Paar-Change-Checkliste,
+  Auslöser/Rollen, Versions-Disziplin, Prozess für API-blockierte
+  Differenzen, koordinierte TODOs und Session-Praxis (Containment).
