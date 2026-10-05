@@ -15,8 +15,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install validation tools
@@ -46,9 +46,25 @@ jobs:
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify release tag matches manifest version
         env:
           TAG_NAME: ${{ github.event.release.tag_name || github.ref_name }}
           EVENT_NAME: ${{ github.event_name }}
         run: python scripts/check_version_sync.py
+
+  canon-check:
+    # Gauge Entity Canon check: verifies entities, translations, attributes,
+    # icons/units and settings ranges against the canon schema from the
+    # ha-gauge-standard submodule (single source of truth for the Gauge family).
+    # Registered deviations (⚠️) keep the run green; anything else fails.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Check entities against the Gauge canon
+        run: python external/ha-gauge-standard/scripts/check_canon.py .
