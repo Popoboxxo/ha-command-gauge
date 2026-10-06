@@ -34,33 +34,33 @@ def test_translations_are_valid_and_have_config_flow_keys():
                 "purchased_credits",
                 "free_credits",
                 "remaining_credits",
-                "window_usage",
-                "window_reset",
-                "window_forecast",
-                "window_pace",
-                "window_remaining",
-                "window_time_to_reset",
-                "window_burn_rate",
+                "usage",
+                "reset",
+                "forecast",
+                "pace",
+                "remaining",
+                "time_to_reset",
+                "burn_rate",
                 "total_cost",
                 "request_count",
                 "token_count",
                 "plan",
-                "models",
+                "model_catalog",
             },
             "binary_sensor": {
-                "account_reachable",
+                "api_reachable",
                 "subscription_active",
                 "credits_below_threshold",
-                "window_exceeded",
+                "rate_limited",
             },
             "number": {
-                "usage_refresh_minutes",
-                "models_refresh_minutes",
-                "warn_percent",
-                "pace_red_percent",
+                "usage_refresh_min",
+                "models_refresh_min",
+                "warning_threshold",
+                "pace_red_limit",
             },
             "button": {"refresh"},
-            "switch": {"auto_usage", "auto_models"},
+            "switch": {"auto_update_usage", "auto_update_models"},
         }
         for domain, keys in expected.items():
             assert set(data["entity"][domain]) == keys
@@ -75,16 +75,16 @@ def test_translations_are_valid_and_have_config_flow_keys():
         ):
             assert data["config"]["abort"][key]
         for key in (
-            "window_usage",
-            "window_reset",
-            "window_forecast",
-            "window_pace",
-            "window_remaining",
-            "window_time_to_reset",
-            "window_burn_rate",
+            "usage",
+            "reset",
+            "forecast",
+            "pace",
+            "remaining",
+            "time_to_reset",
+            "burn_rate",
         ):
-            assert "{window}" in data["entity"]["sensor"][key]["name"]
-        assert "{window}" in data["entity"]["binary_sensor"]["window_exceeded"]["name"]
+            assert data["entity"]["sensor"][key]["name"].startswith("{window}")
+        assert data["entity"]["binary_sensor"]["rate_limited"]["name"].startswith("{window}")
 
 
 def test_manifest_and_project_version_are_consistent():

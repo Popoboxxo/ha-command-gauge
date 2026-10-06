@@ -68,35 +68,35 @@
       "purchased_credits": { "name": "Purchased credits" },
       "free_credits": { "name": "Free credits" },
       "remaining_credits": { "name": "Remaining credits" },
-      "window_usage": { "name": "Usage {window}" },
-      "window_reset": { "name": "Reset {window}" },
-      "window_forecast": { "name": "Forecast {window}" },
-      "window_pace": { "name": "Pace {window}" },
-      "window_remaining": { "name": "Remaining {window}" },
-      "window_time_to_reset": { "name": "Time to reset {window}" },
-      "window_burn_rate": { "name": "Burn rate {window}" },
+      "usage": { "name": "{window} Usage" },
+      "reset": { "name": "{window} Reset" },
+      "forecast": { "name": "{window} Forecast" },
+      "pace": { "name": "{window} Pace" },
+      "remaining": { "name": "{window} Remaining" },
+      "time_to_reset": { "name": "{window} Time to Reset" },
+      "burn_rate": { "name": "{window} Burn-Rate" },
       "total_cost": { "name": "Total cost" },
       "request_count": { "name": "Requests" },
       "token_count": { "name": "Tokens" },
       "plan": { "name": "Plan" },
-      "models": { "name": "Models" }
+      "model_catalog": { "name": "Models" }
     },
     "binary_sensor": {
-      "account_reachable": { "name": "Account reachable" },
-      "subscription_active": { "name": "Subscription active" },
+      "api_reachable": { "name": "API Reachable" },
+      "subscription_active": { "name": "Subscription Active" },
       "credits_below_threshold": { "name": "Credits below threshold" },
-      "window_exceeded": { "name": "Usage limit exceeded {window}" }
+      "rate_limited": { "name": "{window} rate-limited" }
     },
     "number": {
-      "usage_refresh_minutes": { "name": "Usage refresh interval" },
-      "models_refresh_minutes": { "name": "Model refresh interval" },
-      "warn_percent": { "name": "Usage warning threshold" },
-      "pace_red_percent": { "name": "Pace red threshold" }
+      "usage_refresh_min": { "name": "Usage Refresh (min)" },
+      "models_refresh_min": { "name": "Models Refresh (min)" },
+      "warning_threshold": { "name": "Warning Threshold" },
+      "pace_red_limit": { "name": "Pace Red Limit" }
     },
     "button": { "refresh": { "name": "Refresh" } },
     "switch": {
-      "auto_usage": { "name": "Automatic usage updates" },
-      "auto_models": { "name": "Automatic model updates" }
+      "auto_update_usage": { "name": "Auto Update Usage" },
+      "auto_update_models": { "name": "Auto Update Models" }
     }
   }
 }

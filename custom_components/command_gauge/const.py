@@ -36,6 +36,33 @@ WINDOW_LABELS = {"5h": "5h rolling", "week": "Weekly"}
 WINDOW_SECONDS = {"5h": 5 * 3600, "week": 7 * 24 * 3600}
 WINDOW_API_KEYS = {"5h": "fiveHour", "week": "weekly"}
 
+# CommandCode subscription.status values that mean "active entitlement".
+# Shared by the subscription binary sensor and the usage no_subscription guard.
+ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "trialing", "paid"})
+
+# Gauge Entity Canon v1.1 convergence (command_gauge 1.0.0): legacy unique_id
+# suffix -> canon suffix. Ordered longest/most specific first so a suffix never
+# matches a broader rule (e.g. ``_account_reachable`` before ``_models``).
+# The registry migration rewrites the stored unique_id in place, keeping the
+# entity_id (and therefore history/statistics) stable.
+LEGACY_UNIQUE_ID_SUFFIXES = (
+    ("_account_reachable", "_api_reachable"),
+    ("_exceeded", "_limited"),
+    ("_models", "_model_catalog"),
+    ("_usage", "_percent"),
+)
+
+
+def migrate_unique_id(unique_id: str | None) -> str | None:
+    """Return the canon unique_id for a legacy suffix, or None if unchanged."""
+    if not unique_id:
+        return None
+    for legacy, canon in LEGACY_UNIQUE_ID_SUFFIXES:
+        if unique_id.endswith(legacy):
+            return f"{unique_id[: -len(legacy)]}{canon}"
+    return None
+
+
 _PASTE_MARKERS = ("\x1b[200~", "\x1b[201~", "[200~", "[201~")
 
 
