@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
@@ -18,6 +19,7 @@ from .coordinator import (
     pace_status,
     remaining_percent,
     seconds_until_reset,
+    usage_status,
 )
 from .entity import CommandGaugeEntityBase
 
@@ -52,7 +54,7 @@ async def async_setup_entry(
             RequestCountSensor(coordinator, entry),
             TokenCountSensor(coordinator, entry),
             PlanSensor(coordinator, entry),
-            ModelsSensor(coordinator, entry),
+            ModelCatalogSensor(coordinator, entry),
         ]
     )
     async_add_entities(entities)
@@ -109,24 +111,57 @@ class _WindowSensor(CommandGaugeEntityBase, SensorEntity):
 
 
 class WindowUsageSensor(_WindowSensor):
-    _attr_translation_key = "window_usage"
+    """Percent usage of one account window.
+
+    Canon parity (go_gauge ``UsagePercentSensor``): on ``no_subscription`` or
+    ``error`` the state is ``None`` (never a string - current HA rejects a
+    string state on a MEASUREMENT-% sensor). The cause stays visible through
+    the ``mdi:shield-off-outline`` icon and the ``status``/``note`` attributes.
+    """
+
+    _attr_translation_key = "usage"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "%"
     _attr_icon = "mdi:speedometer"
 
     def __init__(self, coordinator, entry, key):
         super().__init__(coordinator, entry, key)
-        self._attr_unique_id = f"{entry.entry_id}_{key}_usage"
+        self._attr_unique_id = f"{entry.entry_id}_{key}_percent"
+
+    def _status(self) -> str:
+        return usage_status(self.coordinator.data)
 
     @property
     def native_value(self) -> float | None:
+        if self._status() in ("no_subscription", "error"):
+            return None
         window = self._window(self._key)
         percent = window.get("percent") if window else None
         return float(percent) if percent is not None else None
 
+    @property
+    def icon(self) -> str:
+        """Shield-off while the subscription is missing, else the speedometer."""
+        if self._status() == "no_subscription":
+            return "mdi:shield-off-outline"
+        return "mdi:speedometer"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        window = self._window(self._key)
+        reset = window.get("resets_at") if window else None
+        subscription = (self.coordinator.data or {}).get("subscription") or {}
+        return {
+            "workspace_key": self.scope_key,
+            "window": self._key,
+            "status": self._status(),
+            "note": subscription.get("status") if isinstance(subscription, dict) else None,
+            "resets_at_iso": reset.isoformat() if isinstance(reset, datetime) else None,
+        }
+
 
 class WindowResetSensor(_WindowSensor):
-    _attr_translation_key = "window_reset"
+    _attr_translation_key = "reset"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_icon = "mdi:timer-reset"
 
@@ -141,7 +176,7 @@ class WindowResetSensor(_WindowSensor):
 
 
 class WindowForecastSensor(_WindowSensor):
-    _attr_translation_key = "window_forecast"
+    _attr_translation_key = "forecast"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "%"
     _attr_icon = "mdi:trending-up"
@@ -156,7 +191,7 @@ class WindowForecastSensor(_WindowSensor):
 
 
 class WindowPaceSensor(_WindowSensor):
-    _attr_translation_key = "window_pace"
+    _attr_translation_key = "pace"
 
     def __init__(self, coordinator, entry, key):
         super().__init__(coordinator, entry, key)
@@ -190,7 +225,7 @@ class WindowPaceSensor(_WindowSensor):
 
 
 class WindowRemainingSensor(_WindowSensor):
-    _attr_translation_key = "window_remaining"
+    _attr_translation_key = "remaining"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "%"
     _attr_icon = "mdi:gauge"
@@ -205,7 +240,7 @@ class WindowRemainingSensor(_WindowSensor):
 
 
 class WindowTimeToResetSensor(_WindowSensor):
-    _attr_translation_key = "window_time_to_reset"
+    _attr_translation_key = "time_to_reset"
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_native_unit_of_measurement = "h"
     _attr_icon = "mdi:timer-sand"
@@ -221,7 +256,7 @@ class WindowTimeToResetSensor(_WindowSensor):
 
 
 class WindowBurnRateSensor(_WindowSensor):
-    _attr_translation_key = "window_burn_rate"
+    _attr_translation_key = "burn_rate"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "%/h"
     _attr_icon = "mdi:fire"
@@ -288,15 +323,23 @@ class PlanSensor(CommandGaugeEntityBase, SensorEntity):
         return ((self.coordinator.data or {}).get("subscription") or {}).get("plan_id")
 
 
-class ModelsSensor(CommandGaugeEntityBase, SensorEntity):
+class ModelCatalogSensor(CommandGaugeEntityBase, SensorEntity):
+    """ONE sensor carries the whole model catalog as dynamic JSON attributes.
+
+    Canon ``model_catalog``. CommandCode's ``/provider/v1/models`` delivers only
+    id/name/context_length (no pricing/live/free metadata), so the live/
+    cheapest/free canon attributes stay API-blocked (canon CG-C1/CG-C2); the
+    catalog itself is fully represented here.
+    """
+
     _section = "models"
-    _attr_translation_key = "models"
+    _attr_translation_key = "model_catalog"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:format-list-bulleted"
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_models"
+        self._attr_unique_id = f"{entry.entry_id}_model_catalog"
 
     @property
     def native_value(self) -> int | None:
@@ -307,7 +350,9 @@ class ModelsSensor(CommandGaugeEntityBase, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         models = (self.coordinator.data or {}).get("models") or {}
+        entries = models.get("models") or []
         return {
-            "catalog_json": json.dumps(models.get("models") or [], ensure_ascii=False),
+            "count": len(entries),
+            "catalog_json": json.dumps(entries, ensure_ascii=False),
             "models_updated_at": models.get("models_updated_at"),
         }

@@ -68,35 +68,35 @@
       "purchased_credits": { "name": "Gekauftes Guthaben" },
       "free_credits": { "name": "Gratisguthaben" },
       "remaining_credits": { "name": "Verbleibendes Guthaben" },
-      "window_usage": { "name": "Nutzung {window}" },
-      "window_reset": { "name": "Zurücksetzen {window}" },
-      "window_forecast": { "name": "Prognose {window}" },
-      "window_pace": { "name": "Pace {window}" },
-      "window_remaining": { "name": "Verbleibend {window}" },
-      "window_time_to_reset": { "name": "Zeit bis Reset {window}" },
-      "window_burn_rate": { "name": "Verbrauchsrate {window}" },
+      "usage": { "name": "{window} Nutzung" },
+      "reset": { "name": "{window} Reset" },
+      "forecast": { "name": "{window} Prognose" },
+      "pace": { "name": "{window} Pace" },
+      "remaining": { "name": "{window} Restbudget" },
+      "time_to_reset": { "name": "{window} Restzeit" },
+      "burn_rate": { "name": "{window} Burn-Rate" },
       "total_cost": { "name": "Gesamtkosten" },
       "request_count": { "name": "Anfragen" },
       "token_count": { "name": "Tokens" },
       "plan": { "name": "Tarif" },
-      "models": { "name": "Modelle" }
+      "model_catalog": { "name": "Modelle" }
     },
     "binary_sensor": {
-      "account_reachable": { "name": "Account erreichbar" },
+      "api_reachable": { "name": "API erreichbar" },
       "subscription_active": { "name": "Abo aktiv" },
       "credits_below_threshold": { "name": "Guthaben unter Schwelle" },
-      "window_exceeded": { "name": "Nutzungslimit überschritten {window}" }
+      "rate_limited": { "name": "{window} rate-limitiert" }
     },
     "number": {
-      "usage_refresh_minutes": { "name": "Nutzungsintervall" },
-      "models_refresh_minutes": { "name": "Modellintervall" },
-      "warn_percent": { "name": "Nutzungs-Warnschwelle" },
-      "pace_red_percent": { "name": "Rote Pace-Schwelle" }
+      "usage_refresh_min": { "name": "Nutzung Refresh (Minuten)" },
+      "models_refresh_min": { "name": "Modelle Refresh (Minuten)" },
+      "warning_threshold": { "name": "Warnschwelle" },
+      "pace_red_limit": { "name": "Ampel Rot-Grenze" }
     },
     "button": { "refresh": { "name": "Aktualisieren" } },
     "switch": {
-      "auto_usage": { "name": "Automatische Nutzungsabfrage" },
-      "auto_models": { "name": "Automatische Modellabfrage" }
+      "auto_update_usage": { "name": "Nutzung Auto-Update" },
+      "auto_update_models": { "name": "Modelle Auto-Update" }
     }
   }
 }

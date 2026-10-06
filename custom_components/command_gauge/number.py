@@ -87,9 +87,9 @@ class _SettingsNumber(CommandGaugeEntityBase, NumberEntity):
 class UsageIntervalNumber(_SettingsNumber):
     _option = CONF_USAGE_REFRESH_MINUTES
     _minimum = 5
-    _attr_translation_key = "usage_refresh_minutes"
+    _attr_translation_key = "usage_refresh_min"
     _attr_native_unit_of_measurement = "min"
-    _attr_icon = "mdi:timer-refresh"
+    _attr_icon = "mdi:timer-outline"
 
     def _default_value(self) -> int:
         return DEFAULT_USAGE_REFRESH_MINUTES
@@ -98,9 +98,9 @@ class UsageIntervalNumber(_SettingsNumber):
 class ModelsIntervalNumber(_SettingsNumber):
     _option = CONF_MODELS_REFRESH_MINUTES
     _minimum = 60
-    _attr_translation_key = "models_refresh_minutes"
+    _attr_translation_key = "models_refresh_min"
     _attr_native_unit_of_measurement = "min"
-    _attr_icon = "mdi:timer-refresh-outline"
+    _attr_icon = "mdi:timer-outline"
 
     def _default_value(self) -> int:
         return DEFAULT_MODELS_REFRESH_MINUTES
@@ -110,9 +110,9 @@ class WarnPercentNumber(_SettingsNumber):
     _option = CONF_WARN_PERCENT
     _minimum = 1
     _maximum = 100
-    _attr_translation_key = "warn_percent"
+    _attr_translation_key = "warning_threshold"
     _attr_native_unit_of_measurement = "%"
-    _attr_icon = "mdi:alert"
+    _attr_icon = "mdi:alert-octagon-outline"
 
     def _default_value(self) -> int:
         return DEFAULT_WARN_PERCENT
@@ -122,9 +122,9 @@ class PaceRedPercentNumber(_SettingsNumber):
     _option = CONF_PACE_RED_PERCENT
     _minimum = 1
     _maximum = 1000
-    _attr_translation_key = "pace_red_percent"
+    _attr_translation_key = "pace_red_limit"
     _attr_native_unit_of_measurement = "%"
-    _attr_icon = "mdi:alert-circle-outline"
+    _attr_icon = "mdi:alert-decagram-outline"
 
     def _default_value(self) -> int:
         return DEFAULT_PACE_RED_PERCENT

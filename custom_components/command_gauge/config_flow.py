@@ -122,7 +122,7 @@ def _identity_data(
 class CommandGaugeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Configure one CommandCode billing account per config entry."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         super().__init__()

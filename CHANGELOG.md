@@ -1,5 +1,73 @@
 # Changelog
 
+## [1.0.0] - 2026-10-06
+
+**Gauge Entity Canon v1.2 convergence (MAJOR / breaking).** `command_gauge`
+now uses the canonical entity model of the Gauge family (master: `go_gauge`
+1.6.0) for everything the CommandCode API allows. Entity names, icons,
+attributes, settings keys and `{window}` word order match `go_gauge`; the
+standardization source of truth is the `ha-gauge-standard` submodule and its
+checker (`check_canon.py`, now 0 errors).
+
+### 💥 Breaking changes
+
+- **Entity `translation_key`s renamed to the canon keys** (entity display
+  names change): `window_usage` → `usage`, `window_reset` → `reset`,
+  `window_forecast` → `forecast`, `window_pace` → `pace`,
+  `window_remaining` → `remaining`, `window_time_to_reset` → `time_to_reset`,
+  `window_burn_rate` → `burn_rate`, `window_exceeded` → `rate_limited`,
+  `account_reachable` → `api_reachable`, `models` → `model_catalog`,
+  `warn_percent` → `warning_threshold`, `pace_red_percent` → `pace_red_limit`,
+  `usage_refresh_minutes` → `usage_refresh_min`, `models_refresh_minutes` →
+  `models_refresh_min`, `auto_usage` → `auto_update_usage`, `auto_models` →
+  `auto_update_models`.
+- **Window name word order** is now canon (placeholder first):
+  `{window} Usage`, `{window} Burn-Rate`, `{window} rate-limited`, ….
+- **`unique_id` suffixes** change to canon for four entities
+  (`_usage` → `_percent`, `_exceeded` → `_limited`, `_models` →
+  `_model_catalog`, `_account_reachable` → `_api_reachable`). A **config-entry
+  migration (v1 → v2)** rewrites the suffix in the entity registry in place,
+  so `entity_id` and recorded history/statistics are preserved (no orphans).
+- Config entry `VERSION` is now 2 and `async_migrate_entry` is registered.
+
+### Added
+
+- `usage` sensor carries the canon status model: state `None` (never a string)
+  on `no_subscription`/`error`, the `mdi:shield-off-outline` icon and the
+  `workspace_key`/`window`/`status`/`note`/`resets_at_iso` attributes.
+- `model_catalog` (renamed from `models`) exposes a `count` attribute.
+- `subscription_active` exposes `workspace_key`/`note`.
+- `tests/test_canon_migration.py` — covers the suffix mapping, the migration
+  callback and the v1 → v2 entry migration (success + failure + no-op paths).
+
+### Changed
+
+- Icons aligned to the canon: `rate_limited` `mdi:block-helper`,
+  `subscription_active` `mdi:shield-check-outline`, `warning_threshold`
+  `mdi:alert-octagon-outline`, `pace_red_limit` `mdi:alert-decagram-outline`,
+  refresh numbers `mdi:timer-outline`.
+- `subscription_active` no longer uses a `device_class` (CONNECTIVITY rendered
+  as "disconnected" and was misread as an API outage).
+- `api_reachable` `is_on` follows `last_update_success` + `fetched_at` (stays
+  deliberately always `available`).
+- `ha-gauge-standard` submodule advanced to canon v1.2.0.
+
+### Unchanged (API-blocked or domain-justified, registered in the canon)
+
+- Only `5h`/`week` windows (CommandCode API has no monthly window).
+- No per-scope `api_status` sensor (API exposes subscription only account-wide).
+- No pricing catalog sensors/attributes (`live_models_count`, `cheapest_model`,
+  `free_models`, `live_count`, `ranking_by_cost`) — CommandCode models carry no
+  pricing.
+- Domain number ranges: `pace_red_limit` 1–1000 (forecast may exceed 300),
+  `usage_refresh_min` min 5, `models_refresh_min` min 60 (API fair use).
+
+### Verification
+
+60 tests passed, `ruff check`/`ruff format --check` clean,
+`scripts/check_json_consistency.py` OK, `check_canon.py` 0 errors / 9 registered
+warnings (all API-blocked or domain-justified).
+
 ## [0.2.0] - 2026-10-04
 
 Release-readiness and parity release. No breaking changes: no `unique_id`

@@ -40,6 +40,18 @@ class CommandGaugeEntityBase(CoordinatorEntity):
         data = self.coordinator.data or {}
         return self._section not in data.get("unavailable", [])
 
+    @property
+    def scope_key(self) -> str:
+        """Stable, non-reversible account-scope key (canon ``workspace_key``).
+
+        Uses the config entry's ``unique_id`` (a hashed, non-reversible scope
+        identity) so a provider org id never leaks into a state attribute.
+        """
+        unique_id = getattr(self._entry, "unique_id", None)
+        if isinstance(unique_id, str) and unique_id:
+            return unique_id
+        return str(getattr(self._entry, "entry_id", "") or "")
+
     def _window(self, key: str) -> dict[str, Any] | None:
         data = self.coordinator.data or {}
         credits = data.get("credits") or {}

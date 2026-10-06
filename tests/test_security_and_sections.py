@@ -84,8 +84,18 @@ def test_section_entities_follow_global_failure() -> None:
 
 def test_reachability_entity_is_available_when_account_is_unavailable():
     coordinator_stub = MagicMock()
-    coordinator_stub.data = {"account": None, "unavailable": ["account"]}
+    coordinator_stub.data = {"account": None, "unavailable": ["account"], "fetched_at": None}
+    coordinator_stub.last_update_success = True
     entry = MagicMock(entry_id="e1", data={"account_name": "Test"}, options={})
-    sensor = binary_sensor.AccountReachableSensor(coordinator_stub, entry)
+    sensor = binary_sensor.ApiReachableSensor(coordinator_stub, entry)
     assert sensor.available is True
-    assert sensor.is_on is None
+    assert sensor.is_on is False
+
+
+def test_reachability_entity_is_on_with_fresh_data():
+    coordinator_stub = MagicMock()
+    coordinator_stub.data = {"fetched_at": "2026-10-05T00:00:00+00:00"}
+    coordinator_stub.last_update_success = True
+    entry = MagicMock(entry_id="e1", data={"account_name": "Test"}, options={})
+    sensor = binary_sensor.ApiReachableSensor(coordinator_stub, entry)
+    assert sensor.is_on is True

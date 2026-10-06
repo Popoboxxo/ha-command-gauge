@@ -99,3 +99,41 @@ def test_pace_sensor_icon_defaults_when_status_unknown():
     assert pace.native_value is None
     assert pace.icon == "mdi:speedometer-medium"
     assert pace.extra_state_attributes["forecast_percent"] is None
+
+
+def test_usage_workspace_key_is_hashed_not_raw_scope():
+    """The canon workspace_key must not leak the raw provider org id."""
+    coordinator = MagicMock()
+    coordinator.data = {
+        "subscription": {"status": "active"},
+        "credits": {"windows": {"5h": {"key": "5h", "percent": 10}}},
+    }
+    entry = MagicMock(
+        entry_id="e1",
+        unique_id="command_gauge_deadbeef",
+        data={"account_name": "Test", "account_scope_key": "organization:secret-org"},
+        options={},
+    )
+    usage = sensor.WindowUsageSensor(coordinator, entry, "5h")
+
+    attrs = usage.extra_state_attributes
+    assert attrs["workspace_key"] == "command_gauge_deadbeef"
+    assert "secret-org" not in attrs["workspace_key"]
+    assert attrs["window"] == "5h"
+    assert attrs["status"] == "ok"
+    assert usage.native_value == 10.0
+    assert usage.icon == "mdi:speedometer"
+
+
+def test_usage_is_none_without_subscription():
+    coordinator = MagicMock()
+    coordinator.data = {
+        "subscription": {"status": "canceled"},
+        "credits": {"windows": {"5h": {"key": "5h", "percent": 42}}},
+    }
+    entry = MagicMock(entry_id="e1", unique_id="command_gauge_x", data={}, options={})
+    usage = sensor.WindowUsageSensor(coordinator, entry, "5h")
+
+    assert usage.native_value is None
+    assert usage.icon == "mdi:shield-off-outline"
+    assert usage.extra_state_attributes["status"] == "no_subscription"

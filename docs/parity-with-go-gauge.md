@@ -1,5 +1,11 @@
 # Paritäts-Konzept: command_gauge ↔ go_gauge
 
+> **Abgelöst (2026-10-06):** Die Pflegedatei der Parität ist jetzt die
+> Feature-Matrix im Standard-Repo (`external/ha-gauge-standard/matrix/parity.md`,
+> Kanon v1.2). Dieses Dokument bleibt als historisches Konzept stehen; der
+> operative Abgleich läuft über den Kanon-Checker
+> (`external/ha-gauge-standard/scripts/check_canon.py`) und `docs/cross-repo-sync.md`.
+
 Stand: 2026-10-04 (command_gauge 0.2.0, go_gauge 1.5.2)
 
 ## Ziel

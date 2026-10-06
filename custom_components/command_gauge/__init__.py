@@ -15,12 +15,83 @@ from .const import (
     CONF_OFFLINE_PENDING,
     DEFAULT_BASE_URL,
     DOMAIN,
+    migrate_unique_id,
     validate_base_url,
 )
 from .coordinator import CommandGaugeCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "binary_sensor", "button", "switch", "number"]
+
+# Config-entry schema version. v2 = Gauge Entity Canon v1.1 convergence.
+MIGRATION_VERSION = 2
+
+
+def _unique_id_migration_callback(registry_entry: object) -> dict[str, str] | None:
+    """Map a legacy entity-registry unique_id to its canon suffix (v2).
+
+    Only the trailing suffix token changes (``usage`` -> ``percent`` etc.);
+    the entry is updated in place by HA, so entity_id and recorded history
+    stay intact. Returns ``None`` when nothing needs to migrate (idempotent).
+    """
+    current = getattr(registry_entry, "unique_id", None)
+    target = migrate_unique_id(current)
+    if target is None:
+        return None
+    return {"new_unique_id": target}
+
+
+async def _async_migrate_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Rewrite legacy unique_id suffixes in the entity registry (v2).
+
+    Returns ``False`` on failure so the caller keeps the old version and HA
+    retries on the next start (no silent half-migration).
+    """
+    try:
+        from homeassistant.helpers.entity_registry import async_migrate_entries
+
+        await async_migrate_entries(hass, entry.entry_id, _unique_id_migration_callback)
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning(
+            "Command Gauge: unique_id migration for %s failed (%s) - "
+            "ids stay unchanged, retried on the next start",
+            entry.entry_id,
+            err,
+        )
+        return False
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate a config entry to the current schema version (VERSION = 2).
+
+    v1 -> v2: Gauge Entity Canon v1.1 convergence. Legacy unique_id suffixes
+    are rewritten to the canon suffixes in the entity registry
+    (``_usage`` -> ``_percent``, ``_exceeded`` -> ``_limited``,
+    ``_models`` -> ``_model_catalog``, ``_account_reachable`` ->
+    ``_api_reachable``). The registry entry itself is preserved, so the
+    entity_id and its history/statistics survive.
+    """
+    if entry.version > MIGRATION_VERSION:
+        return False
+
+    if entry.version < MIGRATION_VERSION:
+        _LOGGER.info(
+            "Command Gauge: migrating config entry %s from version %s to %s",
+            entry.entry_id,
+            entry.version,
+            MIGRATION_VERSION,
+        )
+        if not await _async_migrate_unique_ids(hass, entry):
+            _LOGGER.warning(
+                "Command Gauge: migration for %s incomplete - entry stays on "
+                "version %s, HA retries on the next start",
+                entry.entry_id,
+                entry.version,
+            )
+            return False
+        hass.config_entries.async_update_entry(entry, version=MIGRATION_VERSION)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

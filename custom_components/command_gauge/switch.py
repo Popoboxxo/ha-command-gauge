@@ -64,9 +64,9 @@ class _AutoSwitch(CommandGaugeEntityBase, SwitchEntity):
 
 class UsageAutoSwitch(_AutoSwitch):
     _option = CONF_AUTO_UPDATE_USAGE
-    _attr_translation_key = "auto_usage"
+    _attr_translation_key = "auto_update_usage"
 
 
 class ModelsAutoSwitch(_AutoSwitch):
     _option = CONF_AUTO_UPDATE_MODELS
-    _attr_translation_key = "auto_models"
+    _attr_translation_key = "auto_update_models"

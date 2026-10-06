@@ -18,6 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    ACTIVE_SUBSCRIPTION_STATUSES,
     CONF_AUTO_UPDATE_MODELS,
     CONF_AUTO_UPDATE_USAGE,
     CONF_MODELS_REFRESH_MINUTES,
@@ -322,6 +323,25 @@ def pace_status(
     if forecast > red_above:
         return "red"
     return "yellow"
+
+
+def usage_status(data: dict[str, Any] | None) -> str:
+    """Resolve the canon usage status of the account scope from a snapshot.
+
+    Canon parity (go_gauge ``UsagePercentSensor``): the usage state is ``None``
+    on ``no_subscription``/``error`` instead of a string on a MEASUREMENT-%-
+    sensor. CommandCode exposes the subscription only account-wide, so the
+    account scope's status is derived from that section.
+    """
+    payload = data or {}
+    subscription = payload.get("subscription")
+    if not isinstance(subscription, dict):
+        section = (payload.get("section_status") or {}).get("subscription") or {}
+        return "error" if section.get("error_code") else "unknown"
+    status = subscription.get("status")
+    if not isinstance(status, str) or not status:
+        return "unknown"
+    return "ok" if status.lower() in ACTIVE_SUBSCRIPTION_STATUSES else "no_subscription"
 
 
 def build_models_block(models: list[dict[str, Any]] | None) -> dict[str, Any] | None:
