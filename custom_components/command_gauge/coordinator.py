@@ -344,6 +344,52 @@ def usage_status(data: dict[str, Any] | None) -> str:
     return "ok" if status.lower() in ACTIVE_SUBSCRIPTION_STATUSES else "no_subscription"
 
 
+def synthesize_month_window(
+    credits: dict[str, Any] | None,
+    subscription: dict[str, Any] | None,
+    summary: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Derive the canon ``month`` window from the monthly credit grant.
+
+    CommandCode has no rolling monthly usage window - its "monthly limit" is
+    the plan's credit grant per billing cycle (``windowLimits`` only ever carry
+    ``fiveHour``/``weekly``). The canon ``month`` window is therefore
+    *synthesized*:
+
+      cap   = credits["monthly_credits"]   (the monthly grant, USD)
+      used  = summary["total_cost"]        (spend since the billing period start)
+      reset = subscription["period_end"]   (billing-cycle reset)
+
+    Defensive: returns ``None`` (never a fake number) when the grant, the spend
+    or the billing period start is unknown. ``used`` is total spend, so with
+    purchased/top-up credits the percent may exceed the grant - a documented
+    approximation.
+    """
+    if (
+        not isinstance(credits, dict)
+        or not isinstance(subscription, dict)
+        or not isinstance(summary, dict)
+    ):
+        return None
+    cap = credits.get("monthly_credits")
+    used = summary.get("total_cost")
+    if isinstance(cap, bool) or not isinstance(cap, (int, float)) or cap <= 0:
+        return None
+    if isinstance(used, bool) or not isinstance(used, (int, float)) or used < 0:
+        return None
+    if subscription.get("period_start") is None:
+        return None
+    return {
+        "used": float(used),
+        "cap": float(cap),
+        "percent": round(used / cap * 100, 2),
+        "resets_at": subscription.get("period_end"),
+        "exceeded": used >= cap,
+        "key": "month",
+        "synthetic": True,
+    }
+
+
 def build_models_block(models: list[dict[str, Any]] | None) -> dict[str, Any] | None:
     """Normalize a validated model catalog, or None for an unknown payload."""
     if models is None:
@@ -751,8 +797,24 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
                     self._raise_auth(err)
 
-                if data.get("credits") and statuses.get("credits", {}).get("error_code") is None:
-                    self._record_window_samples(data["credits"], now)
+                credits_block = data.get("credits")
+                if (
+                    isinstance(credits_block, dict)
+                    and statuses.get("credits", {}).get("error_code") is None
+                ):
+                    # Canon month window: synthesized from the monthly credit
+                    # grant (no rolling monthly window in the API).
+                    month_window = synthesize_month_window(
+                        credits_block,
+                        data.get("subscription"),
+                        data.get("summary"),
+                    )
+                    windows = credits_block.setdefault("windows", {})
+                    if month_window is None:
+                        windows.pop("month", None)
+                    else:
+                        windows["month"] = month_window
+                    self._record_window_samples(credits_block, now)
             self.last_usage_fetch = now
             data["fetched_at"] = now.isoformat()
 

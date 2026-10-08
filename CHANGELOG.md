@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.1.0] - 2026-10-08
+
+**Synthetic monthly window (canon `month`).** The canon defines a per-window
+entity set for `5h`/`week`/`month`. CommandCode's API exposes only two rolling
+`windowLimits` (`fiveHour`, `weekly`) — its "monthly limit" is the plan's
+**credit grant per billing cycle**, not a rolling usage window. To close the
+canon gap without faking API data, the `month` window is **derived** from the
+monthly credits and clearly documented as a synthetic, registered deviation.
+
+### Added
+
+- The full canon window set now also exists for `month` (7 sensors +
+  `rate_limited`): `{window} Usage`, `{window} Reset`, `{window} Forecast`,
+  `{window} Pace`, `{window} Remaining`, `{window} Time to Reset`,
+  `{window} Burn-Rate`, `{window} rate-limited`.
+- `coordinator.synthesize_month_window()` — pure, defensive derivation:
+  - `cap` = `credits.monthly_credits` (the monthly grant, USD)
+  - `used` = `summary.total_cost` (spend since the billing period start)
+  - `reset` = `subscription.period_end`
+  - returns `None` (never a fake number) when the grant, the spend or the
+    billing period start is unknown.
+- Tests for the derivation (percent/exceeded/reset + all `None` guard paths)
+  and the widened sensor wiring.
+
+### Notes
+
+- **Approximation:** `used` is *total* spend; with purchased/top-up credits the
+  monthly percent can exceed the grant (those credits are not throttled and are
+  not part of the monthly pool). Registered as a documented ⚠️ deviation in the
+  canon (`month` window derivation, canon v1.3.0).
+- No breaking change: existing `5h`/`week` entities and `unique_id`s are
+  unchanged; the month entities are additive. Config entry `VERSION` stays 2.
+
+### Verification
+
+`check_canon.py` → command_gauge **0 errors / 9 registered warnings**
+(the former `windows` deviation is gone — the window order now matches the
+canon; the synthetic month is documented).
+
 ## [1.0.0] - 2026-10-06
 
 **Gauge Entity Canon v1.2 convergence (MAJOR / breaking).** `command_gauge`
