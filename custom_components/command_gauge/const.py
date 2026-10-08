@@ -32,8 +32,15 @@ DEFAULT_PACE_RED_PERCENT = 100
 DEFAULT_USAGE_REFRESH_MINUTES = 10
 DEFAULT_MODELS_REFRESH_MINUTES = 60
 
-WINDOW_LABELS = {"5h": "5h rolling", "week": "Weekly"}
-WINDOW_SECONDS = {"5h": 5 * 3600, "week": 7 * 24 * 3600}
+WINDOW_LABELS = {"5h": "5h rolling", "week": "Weekly", "month": "Monthly"}
+# Nominal window length in seconds (canon values). "month" is a 30-day
+# approximation used to project the monthly pace; the real reset comes from the
+# billing period end (see synthesize_month_window).
+WINDOW_SECONDS = {"5h": 5 * 3600, "week": 7 * 24 * 3600, "month": 30 * 24 * 3600}
+# CommandCode's rolling ``windowLimits`` only expose these two keys. The canon
+# ``month`` window is NOT an API window - it is synthesized from the monthly
+# credit grant (see coordinator.synthesize_month_window) and therefore has no
+# API key here.
 WINDOW_API_KEYS = {"5h": "fiveHour", "week": "weekly"}
 
 # CommandCode subscription.status values that mean "active entitlement".

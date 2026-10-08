@@ -145,3 +145,51 @@ def test_burn_rate_requires_two_distant_samples():
     assert coordinator.burn_rate_per_hour(
         [(now - timedelta(hours=1), 10), (now, 20)], now
     ) == pytest.approx(10)
+
+
+def test_synthesize_month_window_from_monthly_credits():
+    start = datetime(2026, 10, 1, tzinfo=UTC)
+    end = datetime(2026, 11, 1, tzinfo=UTC)
+    window = coordinator.synthesize_month_window(
+        {"monthly_credits": 80.0},
+        {"period_start": start, "period_end": end},
+        {"total_cost": 20.0},
+    )
+    assert window is not None
+    assert window["key"] == "month"
+    assert window["synthetic"] is True
+    assert window["cap"] == 80.0
+    assert window["used"] == 20.0
+    assert window["percent"] == 25.0
+    assert window["resets_at"] == end
+    assert window["exceeded"] is False
+
+
+def test_synthesize_month_window_marks_exceeded_and_never_fakes_numbers():
+    start = datetime(2026, 10, 1, tzinfo=UTC)
+    over = coordinator.synthesize_month_window(
+        {"monthly_credits": 80.0},
+        {"period_start": start, "period_end": None},
+        {"total_cost": 90.0},
+    )
+    assert over is not None and over["exceeded"] is True
+
+    # Missing spend (no summary) -> no window instead of a fake 0/100.
+    assert (
+        coordinator.synthesize_month_window(
+            {"monthly_credits": 80.0}, {"period_start": start}, None
+        )
+        is None
+    )
+    # No billing period start -> the summary window is not monthly -> None.
+    assert (
+        coordinator.synthesize_month_window({"monthly_credits": 80.0}, {}, {"total_cost": 1.0})
+        is None
+    )
+    # Non-positive grant -> None.
+    assert (
+        coordinator.synthesize_month_window(
+            {"monthly_credits": 0}, {"period_start": start}, {"total_cost": 1.0}
+        )
+        is None
+    )
