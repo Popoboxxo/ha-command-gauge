@@ -35,6 +35,7 @@ from .const import (
     WINDOW_SECONDS,
     build_url,
     parse_timestamp,
+    plan_monthly_credits,
     text,
 )
 
@@ -347,41 +348,41 @@ def usage_status(data: dict[str, Any] | None) -> str:
 def synthesize_month_window(
     credits: dict[str, Any] | None,
     subscription: dict[str, Any] | None,
-    summary: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Derive the canon ``month`` window from the monthly credit grant.
+    """Derive the canon ``month`` window from the plan's monthly credit grant.
 
-    CommandCode has no rolling monthly usage window - its "monthly limit" is
-    the plan's credit grant per billing cycle (``windowLimits`` only ever carry
-    ``fiveHour``/``weekly``). The canon ``month`` window is therefore
-    *synthesized*:
+    CommandCode has no rolling monthly window - ``windowLimits`` only ever
+    carry ``fiveHour``/``weekly``. The monthly limit is the plan's credit
+    grant per billing cycle, and ``/alpha/billing/credits`` exposes only the
+    *remaining* ``monthlyCredits``; the grant itself is keyed by the
+    subscription's ``planId`` (see ``const.PLAN_MONTHLY_CREDITS``, the same
+    table the official ``command-code`` CLI uses). The canon ``month`` window
+    is therefore *synthesized*:
 
-      cap   = credits["monthly_credits"]   (the monthly grant, USD)
-      used  = summary["total_cost"]        (spend since the billing period start)
-      reset = subscription["period_end"]   (billing-cycle reset)
+      cap     = plan grant (USD)
+      used    = max(0, cap - credits.monthly_credits)   # drawn from the grant
+      reset   = subscription.period_end                 # billing-cycle reset
+      percent = used / cap * 100
 
-    Defensive: returns ``None`` (never a fake number) when the grant, the spend
-    or the billing period start is unknown. ``used`` is total spend, so with
-    purchased/top-up credits the percent may exceed the grant - a documented
-    approximation.
+    ``credits.monthly_credits`` is a *remaining balance*, so it must never be
+    used as the cap - doing so made the monthly percentage climb as the grant
+    drained. Defensive: returns ``None`` (never a fake number) when the plan is
+    unknown, the grant is non-positive, or the remaining monthly credit is
+    missing.
     """
-    if (
-        not isinstance(credits, dict)
-        or not isinstance(subscription, dict)
-        or not isinstance(summary, dict)
-    ):
+    if not isinstance(credits, dict) or not isinstance(subscription, dict):
         return None
-    cap = credits.get("monthly_credits")
-    used = summary.get("total_cost")
-    if isinstance(cap, bool) or not isinstance(cap, (int, float)) or cap <= 0:
+    cap = plan_monthly_credits(subscription.get("plan_id"))
+    remaining = credits.get("monthly_credits")
+    if cap is None:
         return None
-    if isinstance(used, bool) or not isinstance(used, (int, float)) or used < 0:
+    if isinstance(remaining, bool) or not isinstance(remaining, (int, float)) or remaining < 0:
         return None
-    if subscription.get("period_start") is None:
-        return None
+    used = max(0.0, float(cap) - float(remaining))
     return {
-        "used": float(used),
+        "used": used,
         "cap": float(cap),
+        "remaining": float(remaining),
         "percent": round(used / cap * 100, 2),
         "resets_at": subscription.get("period_end"),
         "exceeded": used >= cap,
@@ -802,12 +803,11 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     isinstance(credits_block, dict)
                     and statuses.get("credits", {}).get("error_code") is None
                 ):
-                    # Canon month window: synthesized from the monthly credit
-                    # grant (no rolling monthly window in the API).
+                    # Canon month window: synthesized from the plan's monthly
+                    # credit grant (no rolling monthly window in the API).
                     month_window = synthesize_month_window(
                         credits_block,
                         data.get("subscription"),
-                        data.get("summary"),
                     )
                     windows = credits_block.setdefault("windows", {})
                     if month_window is None:
