@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import conftest  # noqa: F401 - installs offline HA stubs
@@ -145,6 +145,33 @@ def test_burn_rate_requires_two_distant_samples():
     assert coordinator.burn_rate_per_hour(
         [(now - timedelta(hours=1), 10), (now, 20)], now
     ) == pytest.approx(10)
+
+
+def test_parse_subscription_keeps_the_raw_period_start():
+    sub = coordinator.parse_subscription(
+        {
+            "success": True,
+            "data": {
+                "planId": "individual-go",
+                "status": "active",
+                "currentPeriodStart": "2026-10-13T18:41:40Z",
+                "currentPeriodEnd": "2026-11-13T18:41:40Z",
+            },
+        }
+    )
+    assert sub is not None
+    # The raw provider value is preserved verbatim for the summary request...
+    assert sub["period_start_raw"] == "2026-10-13T18:41:40Z"
+    # ...while the parsed datetime drives the local window logic.
+    assert sub["period_start"] == datetime(2026, 10, 13, 18, 41, 40, tzinfo=UTC)
+
+
+def test_iso_z_never_emits_the_offset_form_the_api_rejects():
+    value = datetime(2026, 10, 13, 18, 41, 40, tzinfo=UTC)
+    assert const.iso_z(value) == "2026-10-13T18:41:40.000Z"
+    assert const.iso_z(None) is None
+    offset = datetime(2026, 10, 13, 20, 41, 40, tzinfo=timezone(timedelta(hours=2)))
+    assert const.iso_z(offset) == "2026-10-13T18:41:40.000Z"
 
 
 def test_plan_monthly_credits_resolves_known_and_versioned_plans():

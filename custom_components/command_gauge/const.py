@@ -244,3 +244,32 @@ def parse_timestamp(value: Any) -> datetime | None:
         return parsed.astimezone(UTC)
     except (TypeError, ValueError, OverflowError, OSError):
         return None
+
+
+def api_param(value: Any) -> str | None:
+    """Render a provider value for use as a request query parameter, verbatim.
+
+    The CommandCode summary endpoint is picky about its ``since`` value (it
+    rejects a re-formatted ``+00:00`` timestamp with HTTP 400), so forward the
+    provider's own value unchanged - string or epoch number.
+    """
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, (int, float)):
+        return str(int(value)) if float(value).is_integer() else repr(float(value))
+    return None
+
+
+def iso_z(value: Any) -> str | None:
+    """Render an aware datetime as a trailing-``Z`` UTC ISO-8601 string.
+
+    CommandCode's ``/alpha`` endpoints reject the ``+00:00`` offset form that
+    ``datetime.isoformat()`` emits (``/alpha/usage/summary?since=...`` returns
+    HTTP 400); the official CLI sends back the raw ``...Z`` value it received.
+    Use this for timestamps that go into a request URL.
+    """
+    if not isinstance(value, datetime):
+        return None
+    return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"

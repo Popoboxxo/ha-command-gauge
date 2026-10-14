@@ -51,13 +51,15 @@ CREDITS = {
     },
 }
 # /alpha/billing/subscriptions: planId + billing period boundaries.
+# The provider emits Z-suffixed UTC timestamps; the summary endpoint rejects
+# the "+00:00" form, so the raw value must be forwarded verbatim.
 SUBSCRIPTION = {
     "success": True,
     "data": {
         "planId": "individual-go",
         "status": "active",
-        "currentPeriodStart": PERIOD_START.isoformat(),
-        "currentPeriodEnd": PERIOD_END.isoformat(),
+        "currentPeriodStart": PERIOD_START.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "currentPeriodEnd": PERIOD_END.strftime("%Y-%m-%dT%H:%M:%SZ"),
     },
 }
 # total_cost (30) is deliberately unrelated to grant - remaining (6).
@@ -131,6 +133,18 @@ def test_month_window_uses_plan_grant_and_remaining_credits():
     assert month["percent"] == 60.0
     assert month["exceeded"] is False
     assert month["resets_at"] == PERIOD_END
+
+
+def test_summary_request_forwards_the_raw_provider_timestamp():
+    """The summary 400s on the '+00:00' form; the raw 'Z' value must be sent."""
+    coord = _coordinator()
+    _run_update(coord)
+
+    # fetch_summary(org_id, since) - the raw currentPeriodStart, not an isoformat.
+    args, _ = coord._client.fetch_summary.await_args
+    assert args[-1] == SUBSCRIPTION["data"]["currentPeriodStart"]
+    assert args[-1].endswith("Z")
+    assert "+00:00" not in args[-1]
 
 
 def test_all_month_sensors_resolve_from_the_synthetic_window():
