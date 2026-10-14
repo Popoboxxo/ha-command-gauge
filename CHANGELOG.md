@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.1.1] - 2026-10-14
+
+**Fix: the synthetic monthly window showed nonsense values on live accounts.**
+
+`/alpha/billing/credits` returns the *remaining* monthly credit in
+`credits.monthlyCredits` - **not** the plan's grant. The 1.1.0 synthesis used
+that remaining balance as the window `cap` and `summary.total_cost` as `used`,
+so the monthly percentage *rose as the grant drained* (e.g. several hundred
+percent late in a cycle) and every monthly window sensor rendered garbage. The
+grant is not in the API; it is keyed by the subscription's `planId`, exactly as
+the official `command-code` CLI resolves it.
+
+### Fixed
+
+- `coordinator.synthesize_month_window()` now derives the window from the
+  plan's monthly grant (new `const.PLAN_MONTHLY_CREDITS` catalog, keyed by the
+  subscription `planId` - the same table the official CLI ships) and the
+  *remaining* monthly credit:
+  - `cap` = plan grant (USD)
+  - `used` = `max(0, cap - credits.monthly_credits)` (drawn from the grant)
+  - `reset` = `subscription.period_end`
+- The window no longer requires `subscription.period_start`. The API only
+  reliably returns `currentPeriodEnd`; a missing period start used to drop the
+  **entire** monthly window, so all seven monthly sensors plus `rate_limited`
+  went `unknown`.
+- An unknown plan id or a missing remaining monthly credit keeps the window
+  `None` (never a fake number) - the monthly entities then report `unknown`
+  instead of wrong values.
+
+### Notes
+
+- `credits.monthly_credits` is a *remaining* balance (it is also what
+  `MonthlyCreditsSensor` and `remaining_credits` expose); it was previously
+  misused as the window cap.
+- The `month` deviation text in the `ha-gauge-standard` submodule (CG-M1) still
+  documents the old `cap = monthly_credits` derivation and needs a paired,
+  spec-first update; the window remains a registered synthetic deviation.
+
+### Verification
+
+`pytest`: 69 passed, including the new `tests/test_e2e_monthly.py`, which drives
+the real coordinator and the real sensor/binary-sensor platforms against the
+official alpha payload shapes. `ruff check` and
+`ruff format --check custom_components tests` clean; `check_canon.py` reports
+0 errors / 8 registered warnings.
+
 ## [1.1.0] - 2026-10-08
 
 **Synthetic monthly window (canon `month`).** The canon defines a per-window

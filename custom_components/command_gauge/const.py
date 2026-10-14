@@ -43,6 +43,25 @@ WINDOW_SECONDS = {"5h": 5 * 3600, "week": 7 * 24 * 3600, "month": 30 * 24 * 3600
 # API key here.
 WINDOW_API_KEYS = {"5h": "fiveHour", "week": "weekly"}
 
+# CommandCode plan catalog: planId -> monthly credit grant (USD). The
+# ``/alpha/billing/credits`` endpoint exposes only the *remaining* monthly
+# credits (``credits.monthlyCredits``); the grant itself is not in the API and
+# is keyed by the subscription's ``planId``. This table mirrors the official
+# ``command-code`` CLI (v1.82.1 ``Zo`` table), whose own credit-depletion math
+# is ``(grant - remaining) / grant``. Keep in sync when CommandCode changes
+# plans (verified 2026-10-14).
+PLAN_MONTHLY_CREDITS: dict[str, float] = {
+    "individual-go": 10.0,
+    "individual-go-v1": 10.0,
+    "individual-goat": 70.0,
+    "individual-pro": 30.0,
+    "individual-pro-v1": 80.0,
+    "individual-provider": 15.0,
+    "individual-max": 150.0,
+    "individual-ultra": 300.0,
+    "teams-pro": 40.0,
+}
+
 # CommandCode subscription.status values that mean "active entitlement".
 # Shared by the subscription binary sensor and the usage no_subscription guard.
 ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "trialing", "paid"})
@@ -67,6 +86,26 @@ def migrate_unique_id(unique_id: str | None) -> str | None:
     for legacy, canon in LEGACY_UNIQUE_ID_SUFFIXES:
         if unique_id.endswith(legacy):
             return f"{unique_id[: -len(legacy)]}{canon}"
+    return None
+
+
+def plan_monthly_credits(plan_id: Any) -> float | None:
+    """Return the plan's monthly credit grant in USD, or None when unknown.
+
+    ``planId`` values are matched directly after normalizing case and ``_`` to
+    ``-``; a version suffix (e.g. ``individual-go-v2``) still resolves through
+    a longest-known-prefix fallback, mirroring the official CLI's plan
+    resolution.
+    """
+    if not isinstance(plan_id, str) or not plan_id.strip():
+        return None
+    candidate = plan_id.strip().lower().replace("_", "-")
+    grant = PLAN_MONTHLY_CREDITS.get(candidate)
+    if grant is not None:
+        return grant
+    for known, grant in sorted(PLAN_MONTHLY_CREDITS.items(), key=lambda item: -len(item[0])):
+        if candidate.startswith(known):
+            return grant
     return None
 
 

@@ -147,49 +147,66 @@ def test_burn_rate_requires_two_distant_samples():
     ) == pytest.approx(10)
 
 
-def test_synthesize_month_window_from_monthly_credits():
-    start = datetime(2026, 10, 1, tzinfo=UTC)
+def test_plan_monthly_credits_resolves_known_and_versioned_plans():
+    assert const.plan_monthly_credits("individual-go") == 10.0
+    assert const.plan_monthly_credits("individual-goat") == 70.0
+    assert const.plan_monthly_credits("INDIVIDUAL_PRO_V1") == 80.0
+    # A version suffix that is not catalogued still resolves by prefix.
+    assert const.plan_monthly_credits("individual-max-v3") == 150.0
+    assert const.plan_monthly_credits("mystery") is None
+    assert const.plan_monthly_credits(None) is None
+
+
+def test_synthesize_month_window_uses_plan_grant_not_remaining_balance():
     end = datetime(2026, 11, 1, tzinfo=UTC)
     window = coordinator.synthesize_month_window(
-        {"monthly_credits": 80.0},
-        {"period_start": start, "period_end": end},
-        {"total_cost": 20.0},
+        {"monthly_credits": 7.0},
+        {"plan_id": "individual-go", "period_end": end},
     )
     assert window is not None
     assert window["key"] == "month"
     assert window["synthetic"] is True
-    assert window["cap"] == 80.0
-    assert window["used"] == 20.0
-    assert window["percent"] == 25.0
+    # cap is the plan grant ($10 Go), NOT the remaining balance ($7).
+    assert window["cap"] == 10.0
+    assert window["used"] == 3.0
+    assert window["remaining"] == 7.0
+    assert window["percent"] == 30.0
     assert window["resets_at"] == end
     assert window["exceeded"] is False
 
 
 def test_synthesize_month_window_marks_exceeded_and_never_fakes_numbers():
-    start = datetime(2026, 10, 1, tzinfo=UTC)
+    end = datetime(2026, 11, 1, tzinfo=UTC)
     over = coordinator.synthesize_month_window(
-        {"monthly_credits": 80.0},
-        {"period_start": start, "period_end": None},
-        {"total_cost": 90.0},
+        {"monthly_credits": 0.0},
+        {"plan_id": "individual-go", "period_end": end},
     )
-    assert over is not None and over["exceeded"] is True
+    assert over is not None
+    assert over["used"] == 10.0
+    assert over["percent"] == 100.0
+    assert over["exceeded"] is True
 
-    # Missing spend (no summary) -> no window instead of a fake 0/100.
+    # Unknown plan -> no window instead of a fake number.
     assert (
         coordinator.synthesize_month_window(
-            {"monthly_credits": 80.0}, {"period_start": start}, None
+            {"monthly_credits": 7.0}, {"plan_id": "mystery-plan", "period_end": end}
         )
         is None
     )
-    # No billing period start -> the summary window is not monthly -> None.
+    # Missing plan id -> None.
+    assert coordinator.synthesize_month_window({"monthly_credits": 7.0}, {}) is None
+    # Missing remaining monthly credit -> None (never used as the cap).
     assert (
-        coordinator.synthesize_month_window({"monthly_credits": 80.0}, {}, {"total_cost": 1.0})
+        coordinator.synthesize_month_window({}, {"plan_id": "individual-go", "period_end": end})
         is None
     )
-    # Non-positive grant -> None.
+    # More remaining than the grant (carry-over) clamps usage to zero.
     assert (
         coordinator.synthesize_month_window(
-            {"monthly_credits": 0}, {"period_start": start}, {"total_cost": 1.0}
-        )
-        is None
+            {"monthly_credits": 12.0}, {"plan_id": "individual-go", "period_end": end}
+        )["used"]
+        == 0.0
     )
+    # Non-dict inputs are rejected.
+    assert coordinator.synthesize_month_window(None, {"plan_id": "individual-go"}) is None
+    assert coordinator.synthesize_month_window({"monthly_credits": 1.0}, None) is None
