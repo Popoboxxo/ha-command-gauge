@@ -33,7 +33,9 @@ from .const import (
     DOMAIN,
     WINDOW_API_KEYS,
     WINDOW_SECONDS,
+    api_param,
     build_url,
+    iso_z,
     parse_timestamp,
     plan_monthly_credits,
     text,
@@ -172,7 +174,8 @@ def parse_subscription(payload: Any) -> dict[str, Any] | None:
     data = root.get("subscription") if isinstance(root.get("subscription"), dict) else root
     plan_id = text(data.get("planId") or data.get("plan_id") or data.get("plan"))
     status = text(data.get("status"))
-    start = parse_timestamp(data.get("currentPeriodStart") or data.get("current_period_start"))
+    start_raw = data.get("currentPeriodStart") or data.get("current_period_start")
+    start = parse_timestamp(start_raw)
     end = parse_timestamp(data.get("currentPeriodEnd") or data.get("current_period_end"))
     if not any((plan_id, status, start, end)):
         # A valid no-subscription response may contain only a typed data envelope.
@@ -182,12 +185,16 @@ def parse_subscription(payload: Any) -> dict[str, Any] | None:
                 "status": None,
                 "period_start": None,
                 "period_end": None,
+                "period_start_raw": None,
             }
         return None
     return {
         "plan_id": plan_id,
         "status": status,
         "period_start": start,
+        # Keep the provider's raw timestamp: the summary endpoint rejects the
+        # ``+00:00`` form and only accepts the value it emitted itself.
+        "period_start_raw": api_param(start_raw),
         "period_end": end,
     }
 
@@ -629,6 +636,36 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "last_success_at": now.isoformat() if success else previous.get("last_success_at"),
         }
 
+    def _record_failure(
+        self,
+        statuses: dict[str, Any],
+        data: dict[str, Any],
+        section: str,
+        now: datetime,
+        error: Exception,
+    ) -> None:
+        """Record a failed section and log the transition.
+
+        Non-401 failures (network, 429/5xx, schema drift) do not abort the
+        update: the section keeps its last known snapshot so the dashboard
+        still shows something. That fallback used to be completely silent -
+        ``last_update_success`` stayed True, the values froze and *nothing*
+        reached the log, so a live outage looked like "sensors stopped
+        updating" with no clue. Log the transition (once per error code, not
+        every poll) so the cause is always visible.
+        """
+        previous = statuses.get(section)
+        status = self._section_status(data.get(section) is not None, now, previous, error)
+        statuses[section] = status
+        if previous is None or previous.get("error_code") != status["error_code"]:
+            http = status.get("http_status")
+            _LOGGER.warning(
+                "Command Gauge: %s section unavailable (%s%s) - keeping last known data",
+                section,
+                status["error_code"],
+                f", HTTP {http}" if http else "",
+            )
+
     @staticmethod
     def empty_data(
         auto_usage: bool = True,
@@ -704,12 +741,7 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # hiding the very error that had just been logged. Setting the
                 # status first makes the sensor report the real cause even
                 # while the entry is failing.
-                statuses["models"] = self._section_status(
-                    data.get("models") is not None,
-                    now,
-                    statuses.get("models"),
-                    err,
-                )
+                self._record_failure(statuses, data, "models", now, err)
                 self._raise_auth(err)
 
         usage_due = (
@@ -730,12 +762,7 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 statuses["account"] = self._section_status(True, now, success=True)
             except Exception as err:  # noqa: BLE001
                 # Status first, then raise - see the models block above.
-                statuses["account"] = self._section_status(
-                    data.get("account") is not None,
-                    now,
-                    statuses.get("account"),
-                    err,
-                )
+                self._record_failure(statuses, data, "account", now, err)
                 self._raise_auth(err)
 
             if identity is not None:
@@ -750,29 +777,21 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     (subscription_raw, "subscription", parse_subscription),
                 ):
                     if isinstance(result, Exception):
-                        # Same reason as above: record first, raise after, so a
-                        # failing auth attempt is visible in the UI instead of
-                        # leaving the section silently unknown.
-                        statuses[section] = self._section_status(
-                            data.get(section) is not None,
-                            now,
-                            statuses.get(section),
-                            result,
-                        )
+                        # Record the real transport/HTTP failure and keep it:
+                        # without the continue the parse branch below would
+                        # overwrite the status with "schema_unrecognized" and
+                        # mask the actual cause (e.g. http_500/network).
+                        self._record_failure(statuses, data, section, now, result)
                         self._raise_auth(result)
+                        continue
                     try:
-                        parsed = None if isinstance(result, Exception) else parser(result)
+                        parsed = parser(result)
                         if parsed is None:
                             raise UpdateFailed(f"Unrecognized {section} response")
                         data[section] = parsed
                         statuses[section] = self._section_status(True, now, success=True)
                     except Exception as err:  # noqa: BLE001
-                        statuses[section] = self._section_status(
-                            data.get(section) is not None,
-                            now,
-                            statuses.get(section),
-                            err,
-                        )
+                        self._record_failure(statuses, data, section, now, err)
                         self._raise_auth(err)
 
                 subscription = data.get("subscription") or {}
@@ -780,7 +799,7 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 new_period = subscription.get("period_start")
                 if new_period and old_period and new_period != old_period:
                     self._usage_samples.clear()
-                since = new_period.isoformat() if isinstance(new_period, datetime) else None
+                since = subscription.get("period_start_raw") or iso_z(new_period)
                 try:
                     summary_raw = await self._client.fetch_summary(org_id, since)
                     summary = parse_summary(summary_raw)
@@ -790,12 +809,7 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     statuses["usage"] = self._section_status(True, now, success=True)
                 except Exception as err:  # noqa: BLE001
                     # Status first, then raise - see the models block above.
-                    statuses["usage"] = self._section_status(
-                        data.get("summary") is not None,
-                        now,
-                        statuses.get("usage"),
-                        err,
-                    )
+                    self._record_failure(statuses, data, "usage", now, err)
                     self._raise_auth(err)
 
                 credits_block = data.get("credits")

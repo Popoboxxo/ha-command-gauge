@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.1.2] - 2026-10-14
+
+**Fix: `/alpha/usage/summary` returned HTTP 400, so the cost/request/token
+sensors were permanently unavailable - and silently.**
+
+The summary request was sent with `since=<period_start>` re-formatted by
+`datetime.isoformat()` (`2026-10-13T18:41:40+00:00`). CommandCode rejects that
+`+00:00` offset form and answers HTTP 400; the official `command-code` CLI
+forwards the provider's own timestamp (`...Z`) verbatim. The integration now
+does the same, with a `Z`-suffixed fallback.
+
+Additionally, a non-401 section failure used to be **completely silent**: the
+coordinator kept the last snapshot, `last_update_success` stayed `True`, and
+nothing was logged - a live outage looked like "all sensors stopped updating"
+with no clue in the log. Section failures are now logged on the error-code
+transition, and a transport/HTTP error is no longer masked as
+`schema_unrecognized`.
+
+### Fixed
+
+- `since` for `/alpha/usage/summary` is forwarded verbatim (`const.api_param`),
+  falling back to a `Z`-suffixed UTC ISO string (`const.iso_z`) - fixes the
+  HTTP 400 and restores `total_cost` / `request_count` / `token_count`.
+- `coordinator._record_failure()` logs every non-401 section failure (once per
+  error code) and preserves the real cause (`http_500` / `network` instead of
+  `schema_unrecognized`).
+
+### Verification
+
+- `pytest`: 73 passed (new tests for the raw `since`, `iso_z`, and the failure
+  logging). `ruff check` + `ruff format --check custom_components tests` clean;
+  `check_json_consistency.py` OK; `check_canon.py` 0 errors / 9 registered
+  warnings.
+
+### Notes
+
+- Diagnosed from a live HA 2026.9.4 diagnostics dump: the `usage` section
+  reported `http_status: 400`, `last_success_at: null`, while every other
+  section was healthy.
+
 ## [1.1.1] - 2026-10-14
 
 **Fix: the synthetic monthly window showed nonsense values on live accounts.**

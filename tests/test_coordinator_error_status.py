@@ -157,3 +157,51 @@ async def test_successful_poll_is_unaffected() -> None:
         assert status.get("error_code") is None, f"{section} recorded an error"
         assert status.get("last_attempt_at"), f"{section} has no attempt timestamp"
     assert coord.last_update_success is True
+
+
+@pytest.mark.asyncio
+async def test_non_auth_section_failure_is_logged_and_keeps_stale_data(caplog) -> None:
+    """A silent 500 used to freeze every sensor with no log output at all.
+
+    The per-section fallback keeps the last snapshot on a non-401 failure, but
+    that must never be silent: it is logged on the error-code transition so a
+    live outage ("sensors stopped updating") is explainable.
+    """
+    import logging
+
+    coord = _coordinator()
+    coord._client.fetch_whoami = AsyncMock(
+        return_value={"org": {"id": "org-1", "login": "org"}, "user": {"id": "u1"}}
+    )
+    coord._client.fetch_credits = AsyncMock(return_value={"credits": {"monthlyCredits": 10}})
+    coord._client.fetch_subscription = AsyncMock(
+        return_value={"data": {"planId": "individual-go", "status": "active"}}
+    )
+    coord._client.fetch_summary = AsyncMock(return_value={"totalCost": 1, "totalCount": 2})
+    coord._client.fetch_models = AsyncMock(
+        return_value=[{"id": "m", "name": "M", "context_length": 1}]
+    )
+
+    coord.data = await coord._async_update_data()
+    first_credits = coord.data["credits"]
+    assert first_credits is not None
+
+    coord._client.fetch_credits = AsyncMock(
+        side_effect=CommandCodeApiError(500, "/alpha/billing/credits")
+    )
+    coord._force_refresh = True
+    with caplog.at_level(logging.WARNING, logger="custom_components.command_gauge.coordinator"):
+        coord.data = await coord._async_update_data()
+
+    # The fallback keeps the previous snapshot instead of blanking the sensor...
+    assert coord.data["credits"] == first_credits
+    # ...but the failure is now visible in the log, and reflected in the status.
+    assert coord.last_update_success is True
+    assert coord.data["section_status"]["credits"]["error_code"] == "http_500"
+    warnings = [
+        record.getMessage()
+        for record in caplog.records
+        if "credits section unavailable" in record.getMessage()
+    ]
+    assert warnings, "a non-auth section failure must be logged"
+    assert "http_500" in warnings[0]
