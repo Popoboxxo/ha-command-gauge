@@ -266,3 +266,25 @@ def test_self_check_logs_every_section(caplog) -> None:
     assert any("self-check" in message for message in messages)
     assert any("usage=http_500" in message for message in messages)
     assert any("account=ok" in message for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_summary_validation_error_retry_failure_is_recorded() -> None:
+    coord = _coordinator()
+    coord._client.fetch_whoami = AsyncMock(
+        return_value={"org": {"id": "org-1", "login": "org"}, "user": {"id": "u1"}}
+    )
+    coord._client.fetch_credits = AsyncMock(return_value={"credits": {"monthlyCredits": 10}})
+    coord._client.fetch_subscription = AsyncMock(
+        return_value={"data": {"status": "active", "currentPeriodEnd": "2026-11-13T18:41:40.000Z"}}
+    )
+    coord._client.fetch_summary = AsyncMock(
+        side_effect=CommandCodeApiError(400, "/alpha/usage/summary")
+    )
+    coord._client.fetch_models = AsyncMock(
+        return_value=[{"id": "m", "name": "M", "context_length": 1}]
+    )
+
+    data = await coord._async_update_data()
+
+    assert data["section_status"]["usage"]["error_code"] == "http_400"

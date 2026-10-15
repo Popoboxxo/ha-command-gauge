@@ -41,6 +41,22 @@ class CommandGaugeEntityBase(CoordinatorEntity):
         return self._section not in data.get("unavailable", [])
 
     @property
+    def suggested_object_id(self) -> str | None:
+        """Pin new object IDs to their canonical translation key.
+
+        On HA >= 2026.9 object IDs can be generated from localized names. This
+        integration's translation keys are the stable English identity, so
+        pinning simple entities to that key keeps object IDs language-independent
+        where no placeholders are involved. Entities with placeholders still fall
+        back to Home Assistant's default generation.
+        """
+        translation_key = getattr(self, "_attr_translation_key", None)
+        placeholders = getattr(self, "_attr_translation_placeholders", None)
+        if isinstance(translation_key, str) and translation_key and not placeholders:
+            return translation_key
+        return super().suggested_object_id
+
+    @property
     def scope_key(self) -> str:
         """Stable, non-reversible account-scope key (canon ``workspace_key``).
 

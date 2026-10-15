@@ -288,3 +288,16 @@ def test_synthesize_month_window_marks_exceeded_and_never_fakes_numbers():
     # Non-dict inputs are rejected.
     assert coordinator.synthesize_month_window(None, {"plan_id": "individual-go"}) is None
     assert coordinator.synthesize_month_window({"monthly_credits": 1.0}, None) is None
+
+
+def test_number_coerces_strings_and_rejects_invalid_values():
+    from decimal import Decimal
+
+    assert coordinator.number(" 2 ") == 2.0
+    assert coordinator.number("2.5") == 2.5
+    assert coordinator.number(True) is None
+    assert coordinator.number("") is None
+    assert coordinator.number("1,234") is None
+    assert coordinator.number("nan") is None
+    assert coordinator.number("inf") is None
+    assert coordinator.number(Decimal("2")) is None
