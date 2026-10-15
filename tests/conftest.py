@@ -187,7 +187,7 @@ def install_ha_stubs() -> None:
 
     sensor = sys.modules["homeassistant.components.sensor"]
     sensor.SensorStateClass = make_enum("MEASUREMENT")
-    sensor.SensorDeviceClass = make_enum("TIMESTAMP", "DURATION")
+    sensor.SensorDeviceClass = make_enum("TIMESTAMP", "DURATION", "ENUM")
 
     binary_sensor = sys.modules["homeassistant.components.binary_sensor"]
     binary_sensor.BinarySensorDeviceClass = make_enum("CONNECTIVITY", "RUNNING", "PROBLEM")

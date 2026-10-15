@@ -123,7 +123,14 @@ def test_credit_threshold_is_preserved() -> None:
 
 
 def test_parse_summary_is_defensive():
-    assert coordinator.parse_summary({"totalCost": "1.5", "totalCount": 4}) is None
+    # Numeric strings are coerced (the alpha API and the official CLI do the same)...
+    assert coordinator.parse_summary({"totalCost": "1.5", "totalCount": "4"}) == {
+        "total_cost": 1.5,
+        "total_count": 4.0,
+        "total_tokens": None,
+    }
+    # ...but genuinely malformed or missing fields still never become success.
+    assert coordinator.parse_summary({"totalCost": "abc", "totalCount": 4}) is None
     assert coordinator.parse_summary({"totalCost": 1}) is None
     assert coordinator.parse_summary({"totalCost": 1, "totalCount": 4, "totalTokens": 0}) == {
         "total_cost": 1.0,
@@ -145,6 +152,50 @@ def test_burn_rate_requires_two_distant_samples():
     assert coordinator.burn_rate_per_hour(
         [(now - timedelta(hours=1), 10), (now, 20)], now
     ) == pytest.approx(10)
+
+
+def test_api_status_derives_the_canon_cause_of_failure():
+    assert coordinator.api_status(None) == "unknown"
+    assert coordinator.api_status({}) == "unknown"
+    ok = {
+        "fetched_at": "2026-10-14T00:00:00+00:00",
+        "subscription": {"status": "active"},
+        "section_status": {"account": {"error_code": None}},
+        "credits": {"windows": {"5h": {"exceeded": False}}},
+    }
+    assert coordinator.api_status(ok) == "ok"
+    assert (
+        coordinator.api_status({"section_status": {"account": {"error_code": "http_401"}}})
+        == "auth_error"
+    )
+    assert (
+        coordinator.api_status(
+            {
+                "subscription": {"status": "canceled"},
+                "section_status": {"subscription": {"error_code": None}},
+            }
+        )
+        == "no_subscription"
+    )
+    assert (
+        coordinator.api_status(
+            {
+                "subscription": {"status": "active"},
+                "section_status": {"usage": {"error_code": "http_500"}},
+            }
+        )
+        == "api_error"
+    )
+    assert (
+        coordinator.api_status(
+            {
+                "subscription": {"status": "active"},
+                "section_status": {"credits": {"error_code": None}},
+                "credits": {"windows": {"5h": {"exceeded": True}}},
+            }
+        )
+        == "rate_limited"
+    )
 
 
 def test_parse_subscription_keeps_the_raw_period_start():

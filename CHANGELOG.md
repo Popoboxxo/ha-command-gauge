@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.2.0] - 2026-10-15
+
+**Startup self-check, a single health entity, and hardened data handling.**
+
+### Added
+
+- **`api_status` sensor** (canon §4): the per-scope cause-of-failure enum
+  `ok` / `no_subscription` / `rate_limited` / `auth_error` / `api_error` /
+  `unknown`, derived from the per-section status, the subscription and the
+  rolling windows. Closes the registered canon deviation **CG-B5**
+  (canon v1.4.0). Attributes: `workspace_key`, `raw_status`, `note`,
+  `last_update_success`; always available - its whole point is to explain why
+  other data may be missing.
+- **Startup self-check**: after the first refresh the coordinator logs a
+  one-line health summary of every section
+  (`Command Gauge self-check: account=ok credits=ok subscription=ok usage=ok models=ok`)
+  and a `WARNING` naming the failing sections, so a restart is immediately
+  diagnosable.
+
+### Changed
+
+- **Numeric strings are coerced** in every parsed number (the alpha API and the
+  official `command-code` CLI do the same), so a stringified field can no longer
+  turn a whole section into an "unrecognized response".
+- **Degraded summary fallback**: if `/alpha/usage/summary` rejects the `since`
+  value with a validation error, it is retried once without `since` (the
+  endpoint defaults to the billing period) instead of blanking the cost sensors.
+
+### Verification
+
+- `pytest`: 76 passed (new tests: `api_status` derivation, self-check logging,
+  summary fallback, numeric-string coercion, E2E `api_status`).
+- `ruff check` + `ruff format --check custom_components tests` clean;
+  `check_json_consistency.py` OK; `check_canon.py` 0 errors / 8 registered
+  warnings (canon v1.4.0).
+
+### Canon
+
+- Paired spec-first change: `ha-gauge-standard` **v1.4.0** closes **CG-B5**; the
+  submodule pin is advanced.
+
 ## [1.1.2] - 2026-10-14
 
 **Fix: `/alpha/usage/summary` returned HTTP 400, so the cost/request/token

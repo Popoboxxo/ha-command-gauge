@@ -47,7 +47,7 @@ def test_sensor_platform_creates_windows_and_credits():
     hass.data = {const.DOMAIN: {"e1": coordinator}}
     added = []
     asyncio.run(sensor.async_setup_entry(hass, entry, added.extend))
-    assert len(added) == 30
+    assert len(added) == 31
     usage = [entity for entity in added if isinstance(entity, sensor.WindowUsageSensor)]
     assert {entity._key: entity.native_value for entity in usage} == {
         "5h": 12.0,

@@ -205,3 +205,64 @@ async def test_non_auth_section_failure_is_logged_and_keeps_stale_data(caplog) -
     ]
     assert warnings, "a non-auth section failure must be logged"
     assert "http_500" in warnings[0]
+
+
+@pytest.mark.asyncio
+async def test_summary_validation_error_retries_without_since() -> None:
+    """A rejected `since` value must degrade, not blank the cost sensors."""
+    coord = _coordinator()
+    coord._client.fetch_whoami = AsyncMock(
+        return_value={"org": {"id": "org-1", "login": "org"}, "user": {"id": "u1"}}
+    )
+    coord._client.fetch_credits = AsyncMock(return_value={"credits": {"monthlyCredits": 10}})
+    coord._client.fetch_subscription = AsyncMock(
+        return_value={
+            "data": {
+                "planId": "individual-go",
+                "status": "active",
+                "currentPeriodStart": "2026-10-13T18:41:40.000Z",
+                "currentPeriodEnd": "2026-11-13T18:41:40.000Z",
+            }
+        }
+    )
+    seen: list[str | None] = []
+
+    async def summary(_org, since):
+        seen.append(since)
+        if since is not None:
+            raise CommandCodeApiError(400, "/alpha/usage/summary")
+        return {"totalCost": 1, "totalCount": 2, "totalTokens": 3}
+
+    coord._client.fetch_summary = AsyncMock(side_effect=summary)
+    coord._client.fetch_models = AsyncMock(
+        return_value=[{"id": "m", "name": "M", "context_length": 1}]
+    )
+
+    data = await coord._async_update_data()
+
+    assert seen == ["2026-10-13T18:41:40.000Z", None], seen
+    assert data["summary"] == {"total_cost": 1.0, "total_count": 2.0, "total_tokens": 3.0}
+    assert data["section_status"]["usage"]["error_code"] is None
+
+
+def test_self_check_logs_every_section(caplog) -> None:
+    """A restart must show the per-section health in one log line."""
+    import logging
+
+    coord = _coordinator()
+    coord.data = {
+        "section_status": {
+            "account": {"error_code": None},
+            "credits": {"error_code": None},
+            "subscription": {"error_code": None},
+            "usage": {"error_code": "http_500"},
+            "models": {"error_code": None},
+        }
+    }
+    with caplog.at_level(logging.WARNING, logger="custom_components.command_gauge.coordinator"):
+        coord.log_self_check()
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("self-check" in message for message in messages)
+    assert any("usage=http_500" in message for message in messages)
+    assert any("account=ok" in message for message in messages)
