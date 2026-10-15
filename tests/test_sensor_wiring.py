@@ -138,3 +138,26 @@ def test_usage_is_none_without_subscription():
     assert usage.native_value is None
     assert usage.icon == "mdi:shield-off-outline"
     assert usage.extra_state_attributes["status"] == "no_subscription"
+
+
+def test_api_status_sensor_stays_available():
+    coordinator = MagicMock()
+    coordinator.data = {"section_status": {}}
+    coordinator.last_update_success = False
+    entry = MagicMock(
+        entry_id="e1", unique_id="command_gauge_deadbeef", data={"account_name": "Test"}, options={}
+    )
+    api_status = sensor.ApiStatusSensor(coordinator, entry)
+    assert api_status.available is True
+
+
+def test_simple_entities_pin_object_id_to_translation_key():
+    coordinator = MagicMock()
+    coordinator.data = {"section_status": {}}
+    entry = MagicMock(
+        entry_id="e1", unique_id="command_gauge_deadbeef", data={"account_name": "Test"}, options={}
+    )
+    entity = sensor.ApiStatusSensor(coordinator, entry)
+    # Simple entities without placeholders pin their object id to the English
+    # canon key so HA >= 2026.9 cannot localize the entity_id.
+    assert entity.suggested_object_id == "api_status"

@@ -8,7 +8,7 @@ import logging
 import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -77,6 +77,10 @@ def number(value: Any) -> float | None:
     Accepts JSON numbers and numeric strings: the CommandCode API is alpha and
     the official CLI coerces both, so a stringified number must not turn a
     whole section into an unrecognized response.
+
+    The alpha API and the official CLI both emit stringified numbers (e.g.
+    ``"1.5"``). ``Decimal`` or localization-specific forms such as ``"1,5"``
+    remain unsupported and intentionally yield ``None``.
     """
     if isinstance(value, bool):
         return None
@@ -365,7 +369,17 @@ def usage_status(data: dict[str, Any] | None) -> str:
 
 
 API_STATUS_UNKNOWN = "unknown"
-API_STATUS_VALUES = (
+API_STATUS_VALUES: tuple[
+    Literal[
+        "ok",
+        "no_subscription",
+        "rate_limited",
+        "auth_error",
+        "api_error",
+        "unknown",
+    ],
+    ...,
+] = (
     "ok",
     "no_subscription",
     "rate_limited",
@@ -377,6 +391,11 @@ API_STATUS_VALUES = (
 
 def api_status(data: dict[str, Any] | None) -> str:
     """Derive the canon ``api_status`` cause-of-failure from a snapshot.
+
+    Returns ``unknown`` only when no per-section status is available. A
+    missing subscription object is treated as "no known inactive status" and
+    therefore does not by itself raise ``no_subscription``; an active
+    subscription with otherwise healthy sections remains ``ok``.
 
     Canon §4: one per-scope enum that names *why* data may be missing, instead
     of a bare reachable yes/no. Precedence: a rejected key (401) is an

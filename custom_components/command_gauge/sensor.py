@@ -89,7 +89,12 @@ class ApiStatusSensor(CommandGaugeEntityBase, SensorEntity):
 
     @property
     def available(self) -> bool:
-        """Always report the cause, including while the API is unreachable."""
+        """Always report the cause, including while the API is unreachable.
+
+        Returning ``True`` is deliberate: ``api_status`` is the sensor whose job
+        is to explain why other sections may be unavailable, so hiding it would
+        defeat its purpose. It can never become unavailable itself.
+        """
         return True
 
     @property
