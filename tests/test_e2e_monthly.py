@@ -152,7 +152,7 @@ def test_all_month_sensors_resolve_from_the_synthetic_window():
     _run_update(coord)
     sensors, binaries = _build_entities(coord)
 
-    assert len(sensors) == len(WINDOW_LABELS) * 7 + 9
+    assert len(sensors) == len(WINDOW_LABELS) * 7 + 10
 
     def month(cls, key="month"):
         return next(
@@ -190,6 +190,15 @@ def test_all_month_sensors_resolve_from_the_synthetic_window():
         if isinstance(entity, binary_sensor.RateLimitedSensor) and entity._key == "month"
     )
     assert limited.is_on is False
+
+    status = next(entity for entity in sensors if isinstance(entity, sensor.ApiStatusSensor))
+    assert status.available is True
+    assert status.native_value == "ok"
+    attrs = status.extra_state_attributes
+    assert attrs["raw_status"] == "active"
+    assert attrs["note"] is None
+    assert attrs["last_update_success"] is True
+    assert attrs["workspace_key"] == "command_gauge_deadbeef"
 
 
 def test_month_window_survives_missing_billing_period_start():

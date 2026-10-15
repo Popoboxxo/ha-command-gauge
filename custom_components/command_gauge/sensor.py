@@ -13,7 +13,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, WINDOW_LABELS
 from .coordinator import (
+    API_STATUS_VALUES,
     CommandGaugeCoordinator,
+    api_status,
     burn_rate_per_hour,
     forecast_percent,
     pace_status,
@@ -46,6 +48,7 @@ async def async_setup_entry(
         )
     entities.extend(
         [
+            ApiStatusSensor(coordinator, entry),
             MonthlyCreditsSensor(coordinator, entry),
             PurchasedCreditsSensor(coordinator, entry),
             FreeCreditsSensor(coordinator, entry),
@@ -58,6 +61,53 @@ async def async_setup_entry(
         ]
     )
     async_add_entities(entities)
+
+
+class ApiStatusSensor(CommandGaugeEntityBase, SensorEntity):
+    """Canon §4: the per-scope cause-of-failure enum.
+
+    ``ok`` / ``no_subscription`` / ``rate_limited`` / ``auth_error`` /
+    ``api_error`` / ``unknown`` - derived from the per-section status, the
+    subscription and the rolling windows. CommandCode exposes the cause only
+    account-wide, so the single account scope carries it. Always available: its
+    whole point is to explain why other data may be missing.
+    """
+
+    _section = "account"
+    _attr_translation_key = "api_status"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(API_STATUS_VALUES)
+    _attr_icon = "mdi:cloud-alert"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_api_status"
+
+    @property
+    def native_value(self) -> str:
+        return api_status(self.coordinator.data)
+
+    @property
+    def available(self) -> bool:
+        """Always report the cause, including while the API is unreachable."""
+        return True
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        statuses = data.get("section_status") or {}
+        failing = {
+            section: status.get("error_code")
+            for section, status in statuses.items()
+            if isinstance(status, dict) and status.get("error_code")
+        }
+        subscription = data.get("subscription")
+        return {
+            "workspace_key": self.scope_key,
+            "raw_status": (subscription.get("status") if isinstance(subscription, dict) else None),
+            "note": ", ".join(f"{section}={code}" for section, code in failing.items()) or None,
+            "last_update_success": self.coordinator.last_update_success,
+        }
 
 
 class _CreditsSensor(CommandGaugeEntityBase, SensorEntity):

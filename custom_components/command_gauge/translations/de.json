@@ -79,6 +79,7 @@
       "request_count": { "name": "Anfragen" },
       "token_count": { "name": "Tokens" },
       "plan": { "name": "Tarif" },
+      "api_status": { "name": "API-Status" },
       "model_catalog": { "name": "Modelle" }
     },
     "binary_sensor": {

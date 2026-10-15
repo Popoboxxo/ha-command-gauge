@@ -45,6 +45,7 @@ def test_translations_are_valid_and_have_config_flow_keys():
                 "request_count",
                 "token_count",
                 "plan",
+                "api_status",
                 "model_catalog",
             },
             "binary_sensor": {

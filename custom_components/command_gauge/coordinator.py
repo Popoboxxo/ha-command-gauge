@@ -72,8 +72,20 @@ class CommandCodeApiError(Exception):
 
 
 def number(value: Any) -> float | None:
-    """Return a finite non-negative JSON number or None."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    """Return a finite non-negative number or None.
+
+    Accepts JSON numbers and numeric strings: the CommandCode API is alpha and
+    the official CLI coerces both, so a stringified number must not turn a
+    whole section into an unrecognized response.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        try:
+            value = float(value.strip())
+        except (TypeError, ValueError):
+            return None
+    if not isinstance(value, (int, float)):
         return None
     try:
         result = float(value)
@@ -352,6 +364,51 @@ def usage_status(data: dict[str, Any] | None) -> str:
     return "ok" if status.lower() in ACTIVE_SUBSCRIPTION_STATUSES else "no_subscription"
 
 
+API_STATUS_UNKNOWN = "unknown"
+API_STATUS_VALUES = (
+    "ok",
+    "no_subscription",
+    "rate_limited",
+    "auth_error",
+    "api_error",
+    "unknown",
+)
+
+
+def api_status(data: dict[str, Any] | None) -> str:
+    """Derive the canon ``api_status`` cause-of-failure from a snapshot.
+
+    Canon §4: one per-scope enum that names *why* data may be missing, instead
+    of a bare reachable yes/no. Precedence: a rejected key (401) is an
+    ``auth_error``; a non-active subscription is ``no_subscription``; any other
+    failed section is an ``api_error`` (transient/schema); a still-healthy API
+    with an exceeded rolling window is ``rate_limited``; otherwise ``ok``.
+    """
+    payload = data or {}
+    statuses = payload.get("section_status")
+    if not isinstance(statuses, dict) or not statuses:
+        return API_STATUS_UNKNOWN
+    codes = {status.get("error_code") for status in statuses.values() if isinstance(status, dict)}
+    codes.discard(None)
+    if "http_401" in codes:
+        return "auth_error"
+    subscription = payload.get("subscription")
+    if isinstance(subscription, dict):
+        status = subscription.get("status")
+        if (
+            isinstance(status, str)
+            and status
+            and status.lower() not in ACTIVE_SUBSCRIPTION_STATUSES
+        ):
+            return "no_subscription"
+    if codes:
+        return "api_error"
+    windows = (payload.get("credits") or {}).get("windows") or {}
+    if any(isinstance(window, dict) and window.get("exceeded") for window in windows.values()):
+        return "rate_limited"
+    return "ok"
+
+
 def synthesize_month_window(
     credits: dict[str, Any] | None,
     subscription: dict[str, Any] | None,
@@ -580,6 +637,32 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._force_refresh = True
         await self.async_refresh()
 
+    def log_self_check(self) -> None:
+        """Log a one-line health summary of every section after startup.
+
+        A restart should immediately show whether all CommandCode data sources
+        answer - the whole reason a silent section failure used to be
+        indistinguishable from "sensors stopped updating".
+        """
+        data = self.data or {}
+        statuses = data.get("section_status") or {}
+        parts: list[str] = []
+        failures: list[str] = []
+        for section in SECTION_KEYS:
+            status = statuses.get(section)
+            if not isinstance(status, dict):
+                parts.append(f"{section}=n/a")
+                continue
+            code = status.get("error_code")
+            parts.append(f"{section}={code or 'ok'}")
+            if code:
+                failures.append(f"{section}:{code}")
+        line = "Command Gauge self-check: " + " ".join(parts)
+        if failures:
+            _LOGGER.warning("%s (%d failing)", line, len(failures))
+        else:
+            _LOGGER.info("%s", line)
+
     @staticmethod
     def _error_code(error: Exception) -> str:
         if isinstance(error, CommandCodeApiError):
@@ -801,14 +884,30 @@ class CommandGaugeCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._usage_samples.clear()
                 since = subscription.get("period_start_raw") or iso_z(new_period)
                 try:
-                    summary_raw = await self._client.fetch_summary(org_id, since)
+                    try:
+                        summary_raw = await self._client.fetch_summary(org_id, since)
+                    except CommandCodeApiError as err:
+                        # Degraded fallback: if the provider ever rejects our
+                        # `since` value (validation error) the endpoint still
+                        # returns the billing-period default when `since` is
+                        # omitted, so the cost/request/token sensors survive a
+                        # contract drift instead of going unavailable.
+                        if since is not None and err.status in (400, 422):
+                            _LOGGER.warning(
+                                "Command Gauge: usage summary rejected since=%s (%s) "
+                                "- retrying without it",
+                                since,
+                                err.status,
+                            )
+                            summary_raw = await self._client.fetch_summary(org_id, None)
+                        else:
+                            raise
                     summary = parse_summary(summary_raw)
                     if summary is None:
                         raise UpdateFailed("Unrecognized usage response")
                     data["summary"] = summary
                     statuses["usage"] = self._section_status(True, now, success=True)
                 except Exception as err:  # noqa: BLE001
-                    # Status first, then raise - see the models block above.
                     self._record_failure(statuses, data, "usage", now, err)
                     self._raise_auth(err)
 
