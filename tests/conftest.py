@@ -134,6 +134,7 @@ def install_ha_stubs() -> None:
         "homeassistant",
         "homeassistant.core",
         "homeassistant.config_entries",
+        "homeassistant.const",
         "homeassistant.exceptions",
         "homeassistant.helpers",
         "homeassistant.helpers.aiohttp_client",
@@ -154,6 +155,11 @@ def install_ha_stubs() -> None:
         parent_name, _, leaf = name.rpartition(".")
         if parent_name:
             setattr(sys.modules[parent_name], leaf, sys.modules[name])
+
+    const = sys.modules["homeassistant.const"]
+    const.EntityCategory = type(
+        "EntityCategory", (), {"CONFIG": "config", "DIAGNOSTIC": "diagnostic"}
+    )
 
     config_entries = sys.modules["homeassistant.config_entries"]
     config_entries.ConfigFlow = ConfigFlowStub

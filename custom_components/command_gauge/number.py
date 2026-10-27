@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -44,6 +45,7 @@ class _SettingsNumber(CommandGaugeEntityBase, NumberEntity):
     _maximum = 1440
     _attr_mode = NumberMode.BOX
     _attr_native_step = 1
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)

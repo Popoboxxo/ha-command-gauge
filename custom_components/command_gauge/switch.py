@@ -6,6 +6,7 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -26,6 +27,7 @@ async def async_setup_entry(
 class _AutoSwitch(CommandGaugeEntityBase, SwitchEntity):
     _option = ""
     _attr_icon = "mdi:autorenew"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)
