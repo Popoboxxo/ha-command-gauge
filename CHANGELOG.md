@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.2.1] - 2026-10-27
+
+**Entity categories aligned with Canon 1.8.0. No functional or entity-id
+changes.**
+
+### Changed
+
+- Settings numbers (`usage_refresh_min`, `models_refresh_min`,
+  `warning_threshold`, `pace_red_limit`) and both auto-update switches now use
+  `EntityCategory.CONFIG`.
+- The refresh button stays uncategorised, so it remains on the main device card;
+  all primary sensors/binary sensors stay uncategorised.
+
+### Canon
+
+- Pins `ha-gauge-standard` to **Canon 1.8.0** (`8bb141a`), including the
+  entity-category policy and checker enforcement.
+
+### Verification
+
+- `pytest`: 83 passed; `ruff check` + `ruff format --check` clean;
+  `check_json_consistency.py` OK; `check_canon.py` 0 errors / 15 registered
+  warnings.
+
+### Breaking changes
+
+None. Categories are UI/registry metadata only: no `unique_id`, `entity_id`,
+state, history or automation changes.
+
 ## [1.2.0] - 2026-10-15
 
 **Startup self-check, a single health entity, and hardened data handling.**
